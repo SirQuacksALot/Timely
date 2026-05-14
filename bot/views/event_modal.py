@@ -17,7 +17,6 @@ class EventModal(discord.ui.Modal, title="Neuen Termin erstellen"):
         required=False,
         max_length=2000,
     )
-    # Comma-separated datetime strings, e.g. "2026-06-01 14:00, 2026-06-02 10:00"
     time_slots = discord.ui.TextInput(
         label="Zeitvorschläge",
         placeholder="2026-06-01 14:00, 2026-06-02 10:00",
@@ -31,11 +30,29 @@ class EventModal(discord.ui.Modal, title="Neuen Termin erstellen"):
     async def on_submit(self, interaction: discord.Interaction) -> None:
         from bot.views.participant_picker import ParticipantPickerView
 
+        eligible_members: list[discord.Member] | None = None
+        if self.apt.restrict_invitees_to_role_id:
+            role = interaction.guild.get_role(self.apt.restrict_invitees_to_role_id)
+            if role:
+                eligible_members = [
+                    m for m in role.members
+                    if m.id != interaction.user.id and not m.bot
+                ]
+
+            if not eligible_members:
+                await interaction.response.send_message(
+                    "Keine einladbaren Nutzer mit der erforderlichen Rolle gefunden.",
+                    ephemeral=True,
+                )
+                return
+
         view = ParticipantPickerView(
             apt=self.apt,
             title=self.event_title.value,
             description=self.description.value or "",
             raw_slots=self.time_slots.value,
+            creator_id=interaction.user.id,
+            eligible_members=eligible_members,
         )
         await interaction.response.send_message(
             "Wähle die Teilnehmer für deinen Termin:", view=view, ephemeral=True
