@@ -2,6 +2,9 @@
 
 ![Timely Banner](assets/banner.png)
 
+[![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL_1.2-blue.svg)](LICENSE)
+[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
 A Discord bot for scheduling appointments and coordinating availability across your server.
 
 ## Features
