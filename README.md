@@ -29,6 +29,8 @@ I'm a Discord bot for scheduling appointments and coordinating availability acro
 - **iCal export** — All participants (including the organiser) receive a `.ics` file upon confirmation, ready to import into any calendar app.
 - **Cancellation** — Organisers can cancel a pending request at any time; all participants are notified via DM.
 - **Reminders** — `/timely remind` sends a follow-up DM to anyone who has not yet replied.
+- **Persistent buttons** — Panel buttons and vote views survive bot restarts.
+- **Announcements** — `/timely announce` posts a formatted info embed in any channel.
 
 ## Requirements
 
@@ -38,7 +40,31 @@ I'm a Discord bot for scheduling appointments and coordinating availability acro
 
 ## Setup
 
-### Local
+### Docker (recommended)
+
+Copy the example environment file and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+`.env` must contain:
+
+```
+DISCORD_TOKEN=your_bot_token
+POSTGRES_PASSWORD=a_secure_password
+DATABASE_URL=postgresql+asyncpg://timely:a_secure_password@db/timely
+```
+
+Then start:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build -d
+```
+
+On first start, Alembic automatically runs `upgrade head` to create all database tables.
+
+### Local (SQLite, no Docker)
 
 ```bash
 # 1. Create and activate virtual environment
@@ -51,23 +77,15 @@ pip install -r requirements.txt
 
 # 3. Configure environment
 cp .env.example .env
-# Add your DISCORD_TOKEN to .env
+# Set DISCORD_TOKEN and DATABASE_URL=sqlite+aiosqlite:///timely.db
 
 # 4. Run
 python -m bot.main
 ```
 
-### Docker
-
-```bash
-docker compose -f docker/docker-compose.yml up --build -d
-```
-
-The SQLite database is persisted in a named Docker volume (`db_data`).
-
 ### Dev Container (VS Code)
 
-Open the project in VS Code and select **Reopen in Container**. The workspace is mounted automatically with Pylance and Ruff pre-configured.
+Open the project in VS Code and select **Reopen in Container**. The workspace is mounted automatically with Pylance and Ruff pre-configured. Uses SQLite by default.
 
 ## Admin Setup
 
@@ -103,11 +121,15 @@ Run this command in the channel where the panel should appear:
 
 | Command | Description |
 |---|---|
-| `/timely list_panels` | Show all configured panels |
+| `/timely list_panels` | Show all configured panels and their status |
 | `/timely refresh_panel panel:…` | Delete and re-post a panel |
 | `/timely delete_panel panel:…` | Delete a panel and all its buttons |
+| `/timely disable panel:…` | Pause a panel — buttons show "unavailable" |
+| `/timely enable panel:…` | Re-enable a paused panel |
 | `/timely list_types panel:…` | Show all buttons in a panel |
+| `/timely edit_type panel:… label:…` | Edit an existing button (label, roles) |
 | `/timely remove_type panel:… label:…` | Remove a button from a panel |
+| `/timely announce` | Post a formatted info embed in the current channel |
 
 ## User Flow
 

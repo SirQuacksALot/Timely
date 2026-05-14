@@ -15,18 +15,26 @@ timeline
         Datetime picker       : Select-based date / hour / minute — no typing required
         Event creation        : 3-step flow, DM invitations, vote view
         Voting & confirmation : Doodle-style voting, auto-confirm on last reply, best-slot algorithm
-        Creator controls      : Status DM, cancel button, 7-day auto-delete
+        Creator controls      : Status DM, cancel button, iCal export
 
-    section Phase 3 · Polish
+    section Phase 3 · Polish & Management
         Multi-panel support   : Multiple panels across channels, per-panel appointment types
-        iCal export           : .ics file sent to all participants on confirmation
+        Panel management      : edit_type, disable/enable, announce command
         Reminders             : /timely remind re-notifies pending participants
         Localisation          : All strings centralised in bot/strings.py
-        Docs & Legal          : README, ROADMAP, EUPL-1.2 license, Code of Conduct
+
+    section Phase 4 · Persistence & Reliability
+        PostgreSQL + Alembic  : Production DB, schema migrations, entrypoint.sh
+        Persistent views      : bot.add_view() on restart — buttons survive reboots
+        DM auto-delete        : Message IDs in DB, hourly background cleanup task
+
+    section Docs & Legal
+        README + ROADMAP      : Full documentation, mascot intro, badges
+        EUPL-1.2 license      : Copyright 2026 SirQuacksALot
+        Code of Conduct       : Contributor Covenant 2.1
 
     section Future
-        Auto-delete on restart  : Persist message IDs in DB, background cleanup task
-        Auto-translation        : Automatic string translation via external API
+        Auto-translation      : Automatic string translation via external API
 ```
 
 ## Status
@@ -36,14 +44,18 @@ timeline
 | Bot foundation & database | ✅ Done | P1 |
 | Admin panel commands | ✅ Done | P1 |
 | Docker + CI/CD | ✅ Done | P1 |
+| PostgreSQL + Alembic | ✅ Done | P1 |
+| Persistent views on restart | ✅ Done | P1 |
 | Role-based access control | ✅ Done | P1 |
 | 3-step event creation flow | ✅ Done | P2 |
 | Select-based datetime picker | ✅ Done | P2 |
 | Doodle-style voting | ✅ Done | P2 |
 | Auto-confirmation & best-slot | ✅ Done | P2 |
-| iCal export | ✅ Done | P3 |
+| iCal export | ✅ Done | P2 |
 | Multi-panel support | ✅ Done | P2 |
-| Reminders | ✅ Done | P4 |
-| Localisation (strings.py) | ✅ Done | P2 |
-| Auto-delete persistence on restart | 🔲 Planned | P4 |
+| edit_type / disable / enable | ✅ Done | P2 |
+| /timely announce | ✅ Done | P2 |
+| Reminders | ✅ Done | P3 |
+| Localisation (strings.py) | ✅ Done | P3 |
+| DM auto-delete persistence | ✅ Done | P4 |
 | Auto-translation | 🔲 Planned | P4 |
