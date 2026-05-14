@@ -1,114 +1,42 @@
-"""View for selecting participants after filling in event details."""
+"""Step 1 of event creation: select participants, then open the event modal."""
 from __future__ import annotations
 
-from datetime import datetime
-
 import discord
-
-from bot.database.models import AppointmentType
-
-
-def _parse_slots(raw: str) -> list[datetime]:
-    slots = []
-    for part in raw.split(","):
-        part = part.strip()
-        try:
-            slots.append(datetime.strptime(part, "%Y-%m-%d %H:%M"))
-        except ValueError:
-            pass
-    return slots
 
 
 class ParticipantPickerView(discord.ui.View):
     def __init__(
         self,
-        apt: AppointmentType,
-        title: str,
-        description: str,
-        raw_slots: str,
+        apt_id: int,
         creator_id: int,
-        eligible_members: list[discord.Member] | None = None,
+        eligible_members: list[discord.Member] | None,
     ) -> None:
         super().__init__(timeout=300)
-        self.apt = apt
-        self.title = title
-        self.description = description
-        self.slots = _parse_slots(raw_slots)
+        self.apt_id = apt_id
+        self.creator_id = creator_id
         self.selected_users: list[discord.Member] = []
 
         if eligible_members is not None:
-            # Role-restricted: show only eligible members in a regular Select
             self.add_item(RoleFilteredSelect(eligible_members))
         else:
-            # No restriction: show all members, but block creator in callback
             self.add_item(OpenSelect(creator_id))
 
-    @discord.ui.button(label="Termin erstellen & Einladungen senden", style=discord.ButtonStyle.success, row=1)
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+    @discord.ui.button(label="Weiter →", style=discord.ButtonStyle.primary, row=1)
+    async def proceed(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not self.selected_users:
             await interaction.response.send_message(
                 "Bitte mindestens einen Teilnehmer auswählen.", ephemeral=True
             )
             return
-        if not self.slots:
-            await interaction.response.send_message(
-                "Keine gültigen Zeitvorschläge gefunden. Format: JJJJ-MM-TT HH:MM", ephemeral=True
-            )
-            return
 
-        await self._create_event_and_notify(interaction)
-
-    async def _create_event_and_notify(self, interaction: discord.Interaction) -> None:
-        from sqlalchemy import select
-
-        from bot.database.db import SessionLocal
-        from bot.database.models import Event, Participant, TimeSlot
-        from bot.views.vote_view import build_vote_message
-
-        async with SessionLocal() as session:
-            event = Event(
-                guild_id=interaction.guild_id,
-                creator_id=interaction.user.id,
-                appointment_type_id=self.apt.id,
-                title=self.title,
-                description=self.description,
-            )
-            session.add(event)
-            await session.flush()
-
-            for dt in self.slots:
-                session.add(TimeSlot(event_id=event.id, start_time=dt))
-
-            for member in self.selected_users:
-                session.add(Participant(event_id=event.id, user_id=member.id))
-
-            await session.commit()
-
-            result = await session.execute(
-                select(TimeSlot).where(TimeSlot.event_id == event.id)
-            )
-            db_slots = result.scalars().all()
-
-        failed: list[str] = []
-        for member in self.selected_users:
-            try:
-                embed, view = build_vote_message(event, db_slots, interaction.user)
-                await member.send(embed=embed, view=view)
-            except discord.Forbidden:
-                failed.append(member.display_name)
-
-        msg = (
-            f"Termin **{self.title}** erstellt! Einladungen wurden versendet.\n"
-            "Nutze `/timely status` um den Abstimmungsstand zu sehen und den finalen Slot zu bestätigen."
+        from bot.views.event_modal import EventModal
+        await interaction.response.send_modal(
+            EventModal(apt_id=self.apt_id, participants=self.selected_users)
         )
-        if failed:
-            msg += f"\nFolgende Nutzer konnten nicht per DM erreicht werden: {', '.join(failed)}"
-
-        await interaction.response.edit_message(content=msg, view=None)
 
 
 class RoleFilteredSelect(discord.ui.Select):
-    """Select pre-populated with only members who have the required role."""
+    """Pre-populated with only members who have the required role."""
 
     def __init__(self, members: list[discord.Member]) -> None:
         self._member_map = {m.id: m for m in members}
@@ -131,7 +59,7 @@ class RoleFilteredSelect(discord.ui.Select):
 
 
 class OpenSelect(discord.ui.UserSelect):
-    """UserSelect for unrestricted events — blocks the creator from being selected."""
+    """Unrestricted member selection — blocks the creator from being selected."""
 
     def __init__(self, creator_id: int) -> None:
         super().__init__(
@@ -145,19 +73,18 @@ class OpenSelect(discord.ui.UserSelect):
     async def callback(self, interaction: discord.Interaction) -> None:
         view: ParticipantPickerView = self.view
         selected = [m for m in self.values if m.id != self.creator_id]
-        creator_was_selected = len(selected) < len(self.values)
-
+        creator_excluded = len(selected) < len(self.values)
         view.selected_users = selected
 
-        if creator_was_selected and not selected:
+        if creator_excluded and not selected:
             await interaction.response.send_message(
                 "Du kannst dich nicht selbst als Teilnehmer auswählen.", ephemeral=True
             )
             return
-
-        if creator_was_selected:
+        if creator_excluded:
             await interaction.response.send_message(
-                "Du wurdest als Ersteller automatisch aus den Teilnehmern entfernt.", ephemeral=True
+                "Du wurdest als Ersteller automatisch aus den Teilnehmern entfernt.",
+                ephemeral=True,
             )
             return
 
