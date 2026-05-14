@@ -123,6 +123,28 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
         if any(p.status == ParticipantStatus.PENDING for p in participants):
             return
 
+        accepted = [p for p in participants if p.status == ParticipantStatus.ACCEPTED]
+        event_title = event.title
+        creator_id = event.creator_id
+
+        # Everyone declined — cancel instead of confirming
+        if not accepted:
+            event.status = EventStatus.CANCELLED
+            await session.commit()
+
+        if not accepted:
+            try:
+                creator = await client.fetch_user(creator_id)
+                embed = discord.Embed(
+                    title=S.ALL_DECLINED_TITLE.format(title=event_title),
+                    description=S.ALL_DECLINED_DESC,
+                    color=discord.Color.red(),
+                )
+                await creator.send(embed=embed)
+            except discord.Forbidden:
+                pass
+            return
+
         counts: dict[int, int] = {s.id: 1 for s in slots}
         for v in votes:
             if v.available:
@@ -133,9 +155,8 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
         event.confirmed_slot_id = best_slot.id
         await session.commit()
 
-        accepted_ids = [p.user_id for p in participants if p.status == ParticipantStatus.ACCEPTED]
-        notify_ids = list({*accepted_ids, event.creator_id})
-        event_title = event.title
+        accepted_ids = [p.user_id for p in accepted]
+        notify_ids = list({*accepted_ids, creator_id})
         event_description = event.description or ""
         best_time = best_slot.start_time
         total = len(participants) + 1

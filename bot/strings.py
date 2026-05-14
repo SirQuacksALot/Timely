@@ -119,6 +119,10 @@ class S:
     STATUS_PICK_EVENT       = "You have several pending appointments. Select one:"
     STATUS_PICK_PH          = "Select appointment..."
 
+    # ── All declined ─────────────────────────────────────────────────────────
+    ALL_DECLINED_TITLE      = "❌ Request cancelled: {title}"
+    ALL_DECLINED_DESC       = "All invited participants declined. The appointment request has been automatically cancelled."
+
     # ── Rate limiting ────────────────────────────────────────────────────────
     MAX_REQUESTS_REACHED    = "You already have **{count}/{max}** open request(s) of this type. Please wait until your current request is confirmed or cancelled."
 
