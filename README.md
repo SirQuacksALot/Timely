@@ -1,9 +1,13 @@
-# Timely
 
 ![Timely Banner](assets/banner.png)
 
-[![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL_1.2-blue.svg)](LICENSE)
-[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+![Python](https://img.shields.io/badge/python-3670A0?style=flat-square&logo=python&logoColor=white&labelColor=272d3f&color=2e3449)
+[![DOCKER](https://img.shields.io/badge/containerized-white?style=flat-square&logo=docker&logoColor=white&labelColor=272d3f&color=2e3449)](#)
+[![CodeFactor](https://img.shields.io/codefactor/grade/github/sirquacksalot/timely?style=flat-square&logo=devbox&label=%C2%A0&labelColor=272d3f&color=2e3449)](https://www.codefactor.io/repository/github/sirquacksalot/timely)
+[![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL_1.2-blue.svg?style=flat-square&logo=opensourceinitiative&logoColor=white&labelColor=272d3f&color=2e3449)](LICENSE)
+[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square&logo=contributorcovenant&logoColor=white&labelColor=272d3f&color=2e3449)](CODE_OF_CONDUCT.md)
+
+# Timely
 
 A Discord bot for scheduling appointments and coordinating availability across your server.
 
