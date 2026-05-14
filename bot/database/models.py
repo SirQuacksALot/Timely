@@ -28,6 +28,7 @@ class ServerConfig(Base):
 
     guild_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     panel_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    panel_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     appointment_types: Mapped[list[AppointmentType]] = relationship(
         back_populates="server_config", cascade="all, delete-orphan"
