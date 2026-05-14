@@ -11,9 +11,7 @@ from bot.strings import S
 def _require_manage_guild():
     async def predicate(interaction: discord.Interaction) -> bool:
         if not interaction.user.guild_permissions.manage_guild:
-            await interaction.response.send_message(
-                "Du benötigst die Berechtigung 'Server verwalten'.", ephemeral=True
-            )
+            await interaction.response.send_message(S.NO_PERMISSION_GUILD, ephemeral=True)
             return False
         return True
     return app_commands.check(predicate)
@@ -70,9 +68,9 @@ class AdminCog(commands.Cog):
 
     # ── Panel Management ───────────────────────────────────────────────────────
 
-    @timely.command(name="create_panel", description="Erstelle ein neues Panel im aktuellen Channel")
+    @timely.command(name="create_panel", description="Create a new panel in the current channel")
     @_require_manage_guild()
-    @app_commands.describe(name="Name des Panels (z.B. 'Intern' oder 'Events')")
+    @app_commands.describe(name="Panel name (e.g. 'Internal' or 'Events')")
     async def create_panel(self, interaction: discord.Interaction, name: str) -> None:
         async with SessionLocal() as session:
             config = await session.get(ServerConfig, interaction.guild_id)
@@ -84,7 +82,7 @@ class AdminCog(commands.Cog):
             existing = await _get_panel(session, interaction.guild_id, name)
             if existing:
                 await interaction.response.send_message(
-                    f"Ein Panel mit dem Namen **{name}** existiert bereits.", ephemeral=True
+                    S.PANEL_ALREADY_EXISTS.format(name=name), ephemeral=True
                 )
                 return
 
@@ -97,22 +95,19 @@ class AdminCog(commands.Cog):
             await session.commit()
 
         await interaction.response.send_message(
-            f"Panel **{name}** in {interaction.channel.mention} erstellt.\n"
-            f"Füge Buttons hinzu mit `/timely add_type panel:{name} label:...`",
+            S.PANEL_CREATED.format(name=name, channel=interaction.channel.mention),
             ephemeral=True,
         )
 
-    @timely.command(name="delete_panel", description="Panel und alle zugehörigen Buttons löschen")
+    @timely.command(name="delete_panel", description="Delete a panel and all its buttons")
     @_require_manage_guild()
-    @app_commands.describe(name="Name des Panels")
+    @app_commands.describe(name="Name of the panel")
     @app_commands.autocomplete(name=_panel_autocomplete)
     async def delete_panel(self, interaction: discord.Interaction, name: str) -> None:
         async with SessionLocal() as session:
             panel = await _get_panel(session, interaction.guild_id, name)
             if panel is None:
-                await interaction.response.send_message(
-                    f"Panel **{name}** nicht gefunden.", ephemeral=True
-                )
+                await interaction.response.send_message(S.PANEL_NOT_FOUND.format(name=name), ephemeral=True)
                 return
 
             channel_id = panel.channel_id
@@ -129,11 +124,9 @@ class AdminCog(commands.Cog):
                 except discord.NotFound:
                     pass
 
-        await interaction.response.send_message(
-            f"Panel **{name}** und alle zugehörigen Buttons wurden gelöscht.", ephemeral=True
-        )
+        await interaction.response.send_message(S.PANEL_DELETED.format(name=name), ephemeral=True)
 
-    @timely.command(name="list_panels", description="Zeige alle konfigurierten Panels")
+    @timely.command(name="list_panels", description="Show all configured panels")
     @_require_manage_guild()
     async def list_panels(self, interaction: discord.Interaction) -> None:
         async with SessionLocal() as session:
@@ -143,10 +136,10 @@ class AdminCog(commands.Cog):
             panels = result.scalars().all()
 
         if not panels:
-            await interaction.response.send_message("Keine Panels konfiguriert.", ephemeral=True)
+            await interaction.response.send_message(S.NO_PANELS, ephemeral=True)
             return
 
-        embed = discord.Embed(title="Konfigurierte Panels", color=discord.Color.blurple())
+        embed = discord.Embed(title=S.PANELS_TITLE, color=discord.Color.blurple())
         for p in panels:
             channel = f"<#{p.channel_id}>" if p.channel_id else "—"
             posted = "✅ Posted" if p.message_id else "⏳ Not posted"
@@ -160,14 +153,14 @@ class AdminCog(commands.Cog):
 
     # ── Appointment Type Management ────────────────────────────────────────────
 
-    @timely.command(name="add_type", description="Füge einen Button zu einem Panel hinzu")
+    @timely.command(name="add_type", description="Add a button to a panel")
     @_require_manage_guild()
     @app_commands.describe(
-        panel="Name des Panels",
-        label="Button-Bezeichnung (z.B. 'Team-Meeting')",
-        nur_ersteller_mit_rolle="Nur Nutzer mit dieser Rolle dürfen diesen Button nutzen (optional)",
-        nur_diese_rolle_einladen="Eingeladene Teilnehmer müssen diese Rolle haben (optional)",
-        max_anfragen="Max. gleichzeitige offene Anfragen pro Nutzer (Standard: 1)",
+        panel="Name of the panel",
+        label="Button label (e.g. 'Team Meeting')",
+        creator_role="Only users with this role may use this button (optional)",
+        invitee_role="Invitees must have this role (optional)",
+        max_requests="Max simultaneous open requests per user (default: 1)",
     )
     @app_commands.autocomplete(panel=_panel_autocomplete)
     async def add_type(
@@ -175,16 +168,15 @@ class AdminCog(commands.Cog):
         interaction: discord.Interaction,
         panel: str,
         label: str,
-        nur_ersteller_mit_rolle: discord.Role | None = None,
-        nur_diese_rolle_einladen: discord.Role | None = None,
-        max_anfragen: int = 1,
+        creator_role: discord.Role | None = None,
+        invitee_role: discord.Role | None = None,
+        max_requests: int = 1,
     ) -> None:
         async with SessionLocal() as session:
             db_panel = await _get_panel(session, interaction.guild_id, panel)
             if db_panel is None:
                 await interaction.response.send_message(
-                    f"Panel **{panel}** nicht gefunden. Erstelle es zuerst mit `/timely create_panel`.",
-                    ephemeral=True,
+                    S.PANEL_NOT_FOUND_USE_CREATE.format(panel=panel), ephemeral=True
                 )
                 return
 
@@ -192,29 +184,29 @@ class AdminCog(commands.Cog):
                 panel_id=db_panel.id,
                 guild_id=interaction.guild_id,
                 label=label,
-                required_creator_role_id=nur_ersteller_mit_rolle.id if nur_ersteller_mit_rolle else None,
-                restrict_invitees_to_role_id=nur_diese_rolle_einladen.id if nur_diese_rolle_einladen else None,
-                max_concurrent_requests=max(1, max_anfragen),
+                required_creator_role_id=creator_role.id if creator_role else None,
+                restrict_invitees_to_role_id=invitee_role.id if invitee_role else None,
+                max_concurrent_requests=max(1, max_requests),
             )
             session.add(apt)
             await session.commit()
 
-        parts = [f"Button **{label}** zu Panel **{panel}** hinzugefügt."]
-        if nur_ersteller_mit_rolle:
-            parts.append(f"Ersteller-Rolle: {nur_ersteller_mit_rolle.mention}")
-        if nur_diese_rolle_einladen:
-            parts.append(f"Einladbare Rolle: {nur_diese_rolle_einladen.mention}")
+        parts = [S.TYPE_ADDED.format(label=label, panel=panel)]
+        if creator_role:
+            parts.append(S.TYPE_ADDED_CREATOR_ROLE.format(role=creator_role.mention))
+        if invitee_role:
+            parts.append(S.TYPE_ADDED_INVITEE_ROLE.format(role=invitee_role.mention))
         await interaction.response.send_message("\n".join(parts), ephemeral=True)
 
-    @timely.command(name="remove_type", description="Entferne einen Button aus einem Panel")
+    @timely.command(name="remove_type", description="Remove a button from a panel")
     @_require_manage_guild()
-    @app_commands.describe(panel="Name des Panels", label="Bezeichnung des Buttons")
+    @app_commands.describe(panel="Name of the panel", label="Button label")
     @app_commands.autocomplete(panel=_panel_autocomplete)
     async def remove_type(self, interaction: discord.Interaction, panel: str, label: str) -> None:
         async with SessionLocal() as session:
             db_panel = await _get_panel(session, interaction.guild_id, panel)
             if db_panel is None:
-                await interaction.response.send_message(f"Panel **{panel}** nicht gefunden.", ephemeral=True)
+                await interaction.response.send_message(S.PANEL_NOT_FOUND.format(name=panel), ephemeral=True)
                 return
 
             result = await session.execute(
@@ -226,16 +218,14 @@ class AdminCog(commands.Cog):
             apt = result.scalar_one_or_none()
             if apt is None:
                 await interaction.response.send_message(
-                    f"Kein Button **{label}** in Panel **{panel}** gefunden.", ephemeral=True
+                    S.TYPE_NOT_FOUND.format(label=label, panel=panel), ephemeral=True
                 )
                 return
             await session.delete(apt)
             await session.commit()
 
         await interaction.response.send_message(
-            f"Button **{label}** aus Panel **{panel}** entfernt. "
-            f"Nutze `/timely refresh_panel panel:{panel}` um das Panel zu aktualisieren.",
-            ephemeral=True,
+            S.TYPE_REMOVED.format(label=label, panel=panel), ephemeral=True
         )
 
     @timely.command(name="edit_type", description="Edit an existing appointment type button")
@@ -244,9 +234,9 @@ class AdminCog(commands.Cog):
         panel="Panel containing the button",
         label="Current button label",
         new_label="New label (leave empty to keep current)",
-        nur_ersteller_mit_rolle="Update creator role restriction (use @everyone to clear)",
-        nur_diese_rolle_einladen="Update invitee role restriction (use @everyone to clear)",
-        max_anfragen="Max. simultaneous open requests per user (leave empty to keep current)",
+        creator_role="Update creator role restriction (use @everyone to clear)",
+        invitee_role="Update invitee role restriction (use @everyone to clear)",
+        max_requests="Max simultaneous open requests per user (leave empty to keep current)",
     )
     @app_commands.autocomplete(panel=_panel_autocomplete, label=_type_autocomplete)
     async def edit_type(
@@ -255,9 +245,9 @@ class AdminCog(commands.Cog):
         panel: str,
         label: str,
         new_label: str | None = None,
-        nur_ersteller_mit_rolle: discord.Role | None = None,
-        nur_diese_rolle_einladen: discord.Role | None = None,
-        max_anfragen: int | None = None,
+        creator_role: discord.Role | None = None,
+        invitee_role: discord.Role | None = None,
+        max_requests: int | None = None,
     ) -> None:
         async with SessionLocal() as session:
             db_panel = await _get_panel(session, interaction.guild_id, panel)
@@ -273,7 +263,9 @@ class AdminCog(commands.Cog):
             )
             apt = result.scalar_one_or_none()
             if apt is None:
-                await interaction.response.send_message(S.TYPE_NOT_FOUND.format(label=label, panel=panel), ephemeral=True)
+                await interaction.response.send_message(
+                    S.TYPE_NOT_FOUND.format(label=label, panel=panel), ephemeral=True
+                )
                 return
 
             old_label = apt.label
@@ -281,29 +273,28 @@ class AdminCog(commands.Cog):
 
             if new_label:
                 apt.label = new_label
-            if nur_ersteller_mit_rolle is not None:
-                # @everyone means "clear the restriction"
-                apt.required_creator_role_id = None if nur_ersteller_mit_rolle.is_default() else nur_ersteller_mit_rolle.id
-            if nur_diese_rolle_einladen is not None:
-                apt.restrict_invitees_to_role_id = None if nur_diese_rolle_einladen.is_default() else nur_diese_rolle_einladen.id
-            if max_anfragen is not None:
-                apt.max_concurrent_requests = max(1, max_anfragen)
+            if creator_role is not None:
+                apt.required_creator_role_id = None if creator_role.is_default() else creator_role.id
+            if invitee_role is not None:
+                apt.restrict_invitees_to_role_id = None if invitee_role.is_default() else invitee_role.id
+            if max_requests is not None:
+                apt.max_concurrent_requests = max(1, max_requests)
 
             await session.commit()
 
         parts = [S.TYPE_UPDATED.format(old=old_label)]
         if label_changed:
             parts.append(S.TYPE_LABEL_CHANGED.format(new=new_label))
-        if nur_ersteller_mit_rolle is not None:
-            if nur_ersteller_mit_rolle.is_default():
+        if creator_role is not None:
+            if creator_role.is_default():
                 parts.append(S.TYPE_ROLE_CLEARED.format(field="Creator role"))
             else:
-                parts.append(S.TYPE_CREATOR_ROLE_SET.format(role=nur_ersteller_mit_rolle.mention))
-        if nur_diese_rolle_einladen is not None:
-            if nur_diese_rolle_einladen.is_default():
+                parts.append(S.TYPE_CREATOR_ROLE_SET.format(role=creator_role.mention))
+        if invitee_role is not None:
+            if invitee_role.is_default():
                 parts.append(S.TYPE_ROLE_CLEARED.format(field="Invitee role"))
             else:
-                parts.append(S.TYPE_INVITEE_ROLE_SET.format(role=nur_diese_rolle_einladen.mention))
+                parts.append(S.TYPE_INVITEE_ROLE_SET.format(role=invitee_role.mention))
 
         if label_changed:
             parts.append(f"\nUse `/timely refresh_panel panel:{panel}` to update the panel buttons.")
@@ -318,7 +309,7 @@ class AdminCog(commands.Cog):
         async with SessionLocal() as session:
             db_panel = await _get_panel(session, interaction.guild_id, panel)
             if db_panel is None:
-                await interaction.response.send_message(f"Panel **{panel}** nicht gefunden.", ephemeral=True)
+                await interaction.response.send_message(S.PANEL_NOT_FOUND.format(name=panel), ephemeral=True)
                 return
 
             result = await session.execute(
@@ -327,34 +318,32 @@ class AdminCog(commands.Cog):
             types = result.scalars().all()
 
         if not types:
-            await interaction.response.send_message(
-                f"Panel **{panel}** hat noch keine Buttons.", ephemeral=True
-            )
+            await interaction.response.send_message(S.NO_TYPES.format(panel=panel), ephemeral=True)
             return
 
-        embed = discord.Embed(title=f"Buttons in Panel '{panel}'", color=discord.Color.blurple())
+        embed = discord.Embed(title=S.TYPES_TITLE.format(panel=panel), color=discord.Color.blurple())
         for apt in types:
-            creator_role = f"<@&{apt.required_creator_role_id}>" if apt.required_creator_role_id else "Everyone"
-            invitee_role = f"<@&{apt.restrict_invitees_to_role_id}>" if apt.restrict_invitees_to_role_id else "Everyone"
+            cr = f"<@&{apt.required_creator_role_id}>" if apt.required_creator_role_id else S.ROLE_ALL
+            ir = f"<@&{apt.restrict_invitees_to_role_id}>" if apt.restrict_invitees_to_role_id else S.ROLE_ALL
             embed.add_field(
                 name=f"**{apt.label}**",
-                value=f"Button usable by: {creator_role}\nInvitees: {invitee_role}\nMax open requests: {apt.max_concurrent_requests}",
+                value=f"{S.TYPE_CREATOR_ROLE}: {cr}\n{S.TYPE_INVITEE_ROLE}: {ir}\nMax requests: {apt.max_concurrent_requests}",
                 inline=False,
             )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     # ── Panel Posting ──────────────────────────────────────────────────────────
 
-    @timely.command(name="post_panel", description="Panel in seinem Channel posten")
+    @timely.command(name="post_panel", description="Post a panel to its channel")
     @_require_manage_guild()
-    @app_commands.describe(panel="Name des Panels")
+    @app_commands.describe(panel="Name of the panel")
     @app_commands.autocomplete(panel=_panel_autocomplete)
     async def post_panel(self, interaction: discord.Interaction, panel: str) -> None:
         await self._post_or_refresh(interaction, panel, refresh=False)
 
-    @timely.command(name="refresh_panel", description="Panel löschen und neu posten")
+    @timely.command(name="refresh_panel", description="Delete and re-post a panel")
     @_require_manage_guild()
-    @app_commands.describe(panel="Name des Panels")
+    @app_commands.describe(panel="Name of the panel")
     @app_commands.autocomplete(panel=_panel_autocomplete)
     async def refresh_panel(self, interaction: discord.Interaction, panel: str) -> None:
         await self._post_or_refresh(interaction, panel, refresh=True)
@@ -368,12 +357,12 @@ class AdminCog(commands.Cog):
             db_panel = await _get_panel(session, interaction.guild_id, panel_name)
             if db_panel is None:
                 await interaction.response.send_message(
-                    f"Panel **{panel_name}** nicht gefunden.", ephemeral=True
+                    S.PANEL_NOT_FOUND.format(name=panel_name), ephemeral=True
                 )
                 return
             if not db_panel.channel_id:
                 await interaction.response.send_message(
-                    f"Panel **{panel_name}** hat keinen Channel.", ephemeral=True
+                    S.PANEL_NO_CHANNEL.format(name=panel_name), ephemeral=True
                 )
                 return
 
@@ -393,8 +382,7 @@ class AdminCog(commands.Cog):
 
         if not types:
             await interaction.response.send_message(
-                f"Panel **{panel_name}** hat keine Buttons. Füge welche hinzu mit `/timely add_type`.",
-                ephemeral=True,
+                S.PANEL_NO_TYPES.format(name=panel_name), ephemeral=True
             )
             return
 
@@ -406,8 +394,8 @@ class AdminCog(commands.Cog):
             db_panel.message_id = msg.id
             await session.commit()
 
-        action = "aktualisiert" if refresh else "gepostet"
-        await interaction.response.send_message(f"Panel **{panel_name}** {action}.", ephemeral=True)
+        result_msg = S.PANEL_REFRESHED.format(name=panel_name) if refresh else S.PANEL_POSTED.format(name=panel_name)
+        await interaction.response.send_message(result_msg, ephemeral=True)
 
     # ── Disable / Enable ───────────────────────────────────────────────────────
 
@@ -456,7 +444,7 @@ class AdminCog(commands.Cog):
 
     # ── User Commands ──────────────────────────────────────────────────────────
 
-    @timely.command(name="status", description="Zeige den Status deiner offenen Termine")
+    @timely.command(name="status", description="Show the status of your open appointment requests")
     async def status(self, interaction: discord.Interaction) -> None:
         from bot.views.creator_view import CreatorView, build_status_embed, fetch_event_data
 
@@ -471,9 +459,7 @@ class AdminCog(commands.Cog):
             events = result.scalars().all()
 
             if not events:
-                await interaction.response.send_message(
-                    "Du hast keine offenen Termine.", ephemeral=True
-                )
+                await interaction.response.send_message(S.STATUS_NO_OPEN_EVENTS, ephemeral=True)
                 return
 
             if len(events) == 1:
@@ -483,15 +469,10 @@ class AdminCog(commands.Cog):
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
             else:
                 view = EventPickerView(list(events))
-                await interaction.response.send_message(
-                    "Du hast mehrere offene Termine. Wähle einen aus:", view=view, ephemeral=True
-                )
+                await interaction.response.send_message(S.STATUS_PICK_EVENT, view=view, ephemeral=True)
 
-    @timely.command(name="remind", description="Sende Erinnerungs-DM an alle ausstehenden Teilnehmer")
+    @timely.command(name="remind", description="Send a reminder DM to participants who have not yet replied")
     async def remind(self, interaction: discord.Interaction) -> None:
-        from bot.views.creator_view import fetch_event_data
-        from bot.views.vote_view import build_vote_message
-
         async with SessionLocal() as session:
             result = await session.execute(
                 select(Event).where(
@@ -503,14 +484,12 @@ class AdminCog(commands.Cog):
             events = result.scalars().all()
 
         if not events:
-            await interaction.response.send_message("Du hast keine offenen Termine.", ephemeral=True)
+            await interaction.response.send_message(S.STATUS_NO_OPEN_EVENTS, ephemeral=True)
             return
 
         if len(events) > 1:
             await interaction.response.send_message(
-                "Du hast mehrere offene Termine. Wähle einen aus:",
-                view=RemindPickerView(list(events)),
-                ephemeral=True,
+                S.REMIND_PICK_EVENT, view=RemindPickerView(list(events)), ephemeral=True
             )
             return
 
@@ -527,9 +506,7 @@ async def _send_reminders(interaction: discord.Interaction, event_id: int) -> No
 
     pending = [p for p in participants if p.status == ParticipantStatus.PENDING]
     if not pending:
-        await interaction.response.send_message(
-            "Alle Teilnehmer haben bereits geantwortet.", ephemeral=True
-        )
+        await interaction.response.send_message(S.REMIND_ALL_ANSWERED, ephemeral=True)
         return
 
     sent, failed = 0, []
@@ -537,19 +514,15 @@ async def _send_reminders(interaction: discord.Interaction, event_id: int) -> No
         try:
             user = await interaction.client.fetch_user(p.user_id)
             embed, view = build_vote_message(event, list(slots), interaction.user)
-            msg = await user.send(
-                content="Erinnerung: Du hast noch nicht auf diese Terminanfrage geantwortet.",
-                embed=embed,
-                view=view,
-            )
+            msg = await user.send(content=S.REMIND_PREFIX, embed=embed, view=view)
             view.message = msg
             sent += 1
         except discord.Forbidden:
             failed.append(str(p.user_id))
 
-    msg = f"Erinnerung an **{sent}** Teilnehmer gesendet."
+    msg = S.REMIND_SENT.format(count=sent)
     if failed:
-        msg += f"\nFolgende Nutzer konnten nicht erreicht werden: {', '.join(failed)}"
+        msg += S.REMIND_FAILED.format(ids=", ".join(failed))
 
     if not interaction.response.is_done():
         await interaction.response.send_message(msg, ephemeral=True)
@@ -565,11 +538,8 @@ class RemindPickerView(discord.ui.View):
 
 class RemindPickerSelect(discord.ui.Select):
     def __init__(self, events: list[Event]) -> None:
-        options = [
-            discord.SelectOption(label=e.title[:100], value=str(e.id))
-            for e in events[:25]
-        ]
-        super().__init__(placeholder="Termin auswählen...", options=options)
+        options = [discord.SelectOption(label=e.title[:100], value=str(e.id)) for e in events[:25]]
+        super().__init__(placeholder=S.STATUS_PICK_PH, options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
@@ -584,11 +554,8 @@ class EventPickerView(discord.ui.View):
 
 class EventPickerSelect(discord.ui.Select):
     def __init__(self, events: list[Event]) -> None:
-        options = [
-            discord.SelectOption(label=e.title[:100], value=str(e.id))
-            for e in events[:25]
-        ]
-        super().__init__(placeholder="Termin auswählen...", options=options)
+        options = [discord.SelectOption(label=e.title[:100], value=str(e.id)) for e in events[:25]]
+        super().__init__(placeholder=S.STATUS_PICK_PH, options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         from bot.views.creator_view import CreatorView, build_status_embed, fetch_event_data

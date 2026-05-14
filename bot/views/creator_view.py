@@ -180,7 +180,7 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
         try:
             user = await client.fetch_user(user_id)
             ics = build_ics(title=event_title, description=event_description, start=best_time)
-            await user.send(embed=embed, file=discord.File(ics, filename="termin.ics"))
+            await user.send(embed=embed, file=discord.File(ics, filename="appointment.ics"))
         except discord.Forbidden:
             pass
 
@@ -286,7 +286,7 @@ class ConfirmSlotSelect(discord.ui.Select):
             try:
                 user = await interaction.client.fetch_user(user_id)
                 ics = build_ics(title=event_title, description=event_description, start=slot.start_time)
-                await user.send(embed=embed, file=discord.File(ics, filename="termin.ics"))
+                await user.send(embed=embed, file=discord.File(ics, filename="appointment.ics"))
             except discord.Forbidden:
                 pass
 

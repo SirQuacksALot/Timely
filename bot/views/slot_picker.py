@@ -8,7 +8,7 @@ import discord
 from bot.strings import S
 
 _DAYS_AHEAD = 21
-_WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 def _next_dates() -> list[date]:
