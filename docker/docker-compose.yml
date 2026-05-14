@@ -1,0 +1,14 @@
+services:
+  bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:///data/timely.db
+    volumes:
+      - db_data:/app/data
+
+volumes:
+  db_data:
