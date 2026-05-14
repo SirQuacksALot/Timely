@@ -166,19 +166,21 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
 
 class CreatorView(discord.ui.View):
     def __init__(self, event_id: int) -> None:
-        super().__init__(timeout=_SEVEN_DAYS)
+        super().__init__(timeout=None)  # Persistent — cleanup handled by background task
         self.event_id = event_id
-        self.message: discord.Message | None = None
+        self.add_item(_CancelButton(event_id))
 
-    async def on_timeout(self) -> None:
-        if self.message:
-            try:
-                await self.message.delete()
-            except (discord.NotFound, discord.Forbidden):
-                pass
 
-    @discord.ui.button(label=S.CREATOR_CANCEL_BUTTON, style=discord.ButtonStyle.danger)
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+class _CancelButton(discord.ui.Button):
+    def __init__(self, event_id: int) -> None:
+        super().__init__(
+            label=S.CREATOR_CANCEL_BUTTON,
+            style=discord.ButtonStyle.danger,
+            custom_id=f"timely:cancel:{event_id}",
+        )
+        self.event_id = event_id
+
+    async def callback(self, interaction: discord.Interaction) -> None:
         async with SessionLocal() as session:
             event, _, participants, _ = await fetch_event_data(session, self.event_id)
 

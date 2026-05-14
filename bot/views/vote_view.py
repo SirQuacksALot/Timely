@@ -34,18 +34,10 @@ def build_vote_message(
 
 class VoteView(discord.ui.View):
     def __init__(self, event_id: int, slots: list[TimeSlot]) -> None:
-        super().__init__(timeout=_SEVEN_DAYS)
+        super().__init__(timeout=None)  # Persistent — cleanup handled by background task
         self.event_id = event_id
-        self.message: discord.Message | None = None
         self.add_item(SlotSelect(event_id=event_id, slots=slots))
         self.add_item(DeclineButton(event_id=event_id))
-
-    async def on_timeout(self) -> None:
-        if self.message:
-            try:
-                await self.message.delete()
-            except (discord.NotFound, discord.Forbidden):
-                pass
 
 
 class DeclineButton(discord.ui.Button):

@@ -60,25 +60,41 @@ class EventModal(discord.ui.Modal):
             for slot in db_slots:
                 await session.refresh(slot)
 
+        # DM participants and collect sent message IDs
         failed: list[str] = []
+        sent: dict[int, discord.Message] = {}
         for member in self.participants:
             try:
                 embed, view = build_vote_message(event, db_slots, interaction.user)
                 msg = await member.send(embed=embed, view=view)
-                view.message = msg
+                sent[member.id] = msg
             except discord.Forbidden:
                 failed.append(member.display_name)
 
+        # DM creator
+        creator_msg: discord.Message | None = None
         try:
             creator_embed = build_creator_initial_embed(event, db_slots, self.participants)
             creator_view = CreatorView(event_id=event.id)
             creator_msg = await interaction.user.send(embed=creator_embed, view=creator_view)
-            creator_view.message = creator_msg
         except discord.Forbidden:
             pass
 
-        msg = S.EVENT_CREATED.format(title=self.event_title.value, count=len(self.participants))
-        if failed:
-            msg += S.EVENT_CREATED_DM_FAILED.format(names=", ".join(failed))
+        # Persist message IDs for cleanup-on-restart
+        async with SessionLocal() as session:
+            for user_id, msg in sent.items():
+                p = await session.get(Participant, (event.id, user_id))
+                if p:
+                    p.dm_message_id = msg.id
+                    p.dm_channel_id = msg.channel.id
+            if creator_msg:
+                ev = await session.get(Event, event.id)
+                if ev:
+                    ev.creator_dm_message_id = creator_msg.id
+                    ev.creator_dm_channel_id = creator_msg.channel.id
+            await session.commit()
 
-        await interaction.response.send_message(msg, ephemeral=True)
+        reply = S.EVENT_CREATED.format(title=self.event_title.value, count=len(self.participants))
+        if failed:
+            reply += S.EVENT_CREATED_DM_FAILED.format(names=", ".join(failed))
+        await interaction.response.send_message(reply, ephemeral=True)

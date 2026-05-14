@@ -1,4 +1,19 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: timely
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: timely
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timely"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   bot:
     build:
       context: ..
@@ -6,9 +21,10 @@ services:
     restart: unless-stopped
     env_file: ../.env
     environment:
-      DATABASE_URL: sqlite+aiosqlite:///data/timely.db
-    volumes:
-      - db_data:/app/data
+      DATABASE_URL: postgresql+asyncpg://timely:${POSTGRES_PASSWORD}@db/timely
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
-  db_data:
+  pg_data:

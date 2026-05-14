@@ -79,6 +79,8 @@ class Event(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    creator_dm_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    creator_dm_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     appointment_type: Mapped[AppointmentType] = relationship(back_populates="events")
     time_slots: Mapped[list[TimeSlot]] = relationship(
@@ -112,6 +114,8 @@ class Participant(Base):
     status: Mapped[ParticipantStatus] = mapped_column(
         Enum(ParticipantStatus), default=ParticipantStatus.PENDING
     )
+    dm_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    dm_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     event: Mapped[Event] = relationship(back_populates="participants")
 

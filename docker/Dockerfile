@@ -6,5 +6,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY bot/ ./bot/
+COPY alembic/ ./alembic/
+COPY alembic.ini .
+COPY docker/entrypoint.sh ./entrypoint.sh
+RUN chmod +x entrypoint.sh
 
-CMD ["python", "-m", "bot.main"]
+CMD ["./entrypoint.sh"]
