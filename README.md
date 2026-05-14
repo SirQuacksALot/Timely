@@ -154,6 +154,10 @@ Timely/
     └── avatar.png
 ```
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for the full development timeline and planned features.
+
 ## CI / CD
 
 A GitHub Actions workflow (`.github/workflows/docker.yml`) builds and pushes a multi-platform Docker image (`linux/amd64` + `linux/arm64`) to the GitHub Container Registry on every version tag:
