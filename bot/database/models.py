@@ -41,6 +41,7 @@ class Panel(Base):
     name: Mapped[str] = mapped_column(String(80))
     channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     server_config: Mapped[ServerConfig] = relationship(back_populates="panels")
     appointment_types: Mapped[list[AppointmentType]] = relationship(

@@ -128,10 +128,11 @@ class AdminCog(commands.Cog):
         embed = discord.Embed(title="Konfigurierte Panels", color=discord.Color.blurple())
         for p in panels:
             channel = f"<#{p.channel_id}>" if p.channel_id else "—"
-            posted = "✅ Gepostet" if p.message_id else "⏳ Nicht gepostet"
+            posted = "✅ Posted" if p.message_id else "⏳ Not posted"
+            active = "🟢 Active" if p.active else "🔴 Disabled"
             embed.add_field(
                 name=f"**{p.name}**",
-                value=f"Channel: {channel}\nStatus: {posted}",
+                value=f"Channel: {channel}\nPosted: {posted}\nStatus: {active}",
                 inline=True,
             )
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -311,6 +312,44 @@ class AdminCog(commands.Cog):
 
         action = "aktualisiert" if refresh else "gepostet"
         await interaction.response.send_message(f"Panel **{panel_name}** {action}.", ephemeral=True)
+
+    # ── Disable / Enable ───────────────────────────────────────────────────────
+
+    @timely.command(name="disable", description="Disable a panel — buttons will no longer accept requests")
+    @_require_manage_guild()
+    @app_commands.describe(panel="Name of the panel to disable")
+    @app_commands.autocomplete(panel=_panel_autocomplete)
+    async def disable(self, interaction: discord.Interaction, panel: str) -> None:
+        async with SessionLocal() as session:
+            db_panel = await _get_panel(session, interaction.guild_id, panel)
+            if db_panel is None:
+                await interaction.response.send_message(S.PANEL_NOT_FOUND.format(name=panel), ephemeral=True)
+                return
+            if not db_panel.active:
+                await interaction.response.send_message(S.PANEL_ALREADY_DISABLED.format(name=panel), ephemeral=True)
+                return
+            db_panel.active = False
+            await session.commit()
+
+        await interaction.response.send_message(S.PANEL_DISABLE_SUCCESS.format(name=panel), ephemeral=True)
+
+    @timely.command(name="enable", description="Re-enable a previously disabled panel")
+    @_require_manage_guild()
+    @app_commands.describe(panel="Name of the panel to enable")
+    @app_commands.autocomplete(panel=_panel_autocomplete)
+    async def enable(self, interaction: discord.Interaction, panel: str) -> None:
+        async with SessionLocal() as session:
+            db_panel = await _get_panel(session, interaction.guild_id, panel)
+            if db_panel is None:
+                await interaction.response.send_message(S.PANEL_NOT_FOUND.format(name=panel), ephemeral=True)
+                return
+            if db_panel.active:
+                await interaction.response.send_message(S.PANEL_ALREADY_ENABLED.format(name=panel), ephemeral=True)
+                return
+            db_panel.active = True
+            await session.commit()
+
+        await interaction.response.send_message(S.PANEL_ENABLE_SUCCESS.format(name=panel), ephemeral=True)
 
     # ── Announce ───────────────────────────────────────────────────────────────
 

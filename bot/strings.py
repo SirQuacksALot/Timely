@@ -119,6 +119,13 @@ class S:
     STATUS_PICK_EVENT       = "You have several pending appointments. Select one:"
     STATUS_PICK_PH          = "Select appointment..."
 
+    # ── /timely disable / enable ─────────────────────────────────────────────
+    PANEL_DISABLED          = "Appointments are currently unavailable. Please check back later."
+    PANEL_ALREADY_DISABLED  = "Panel **{name}** is already disabled."
+    PANEL_ALREADY_ENABLED   = "Panel **{name}** is already enabled."
+    PANEL_DISABLE_SUCCESS   = "Panel **{name}** has been disabled. Buttons will no longer accept new requests."
+    PANEL_ENABLE_SUCCESS    = "Panel **{name}** has been re-enabled."
+
     # ── /timely announce ─────────────────────────────────────────────────────
     ANNOUNCE_MODAL_TITLE    = "Post announcement"
     ANNOUNCE_FIELD_TITLE    = "Title"

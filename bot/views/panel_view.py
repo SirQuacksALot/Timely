@@ -1,6 +1,6 @@
 import discord
 
-from bot.database.models import AppointmentType
+from bot.database.models import AppointmentType, Panel
 from bot.strings import S
 
 
@@ -38,9 +38,14 @@ class AppointmentTypeButton(discord.ui.Button):
 
         async with SessionLocal() as session:
             apt = await session.get(AppointmentType, self.apt_id)
+            panel = await session.get(Panel, apt.panel_id) if apt else None
 
         if apt is None:
             await interaction.response.send_message(S.TYPE_GONE, ephemeral=True)
+            return
+
+        if panel is None or not panel.active:
+            await interaction.response.send_message(S.PANEL_DISABLED, ephemeral=True)
             return
 
         if apt.required_creator_role_id:
