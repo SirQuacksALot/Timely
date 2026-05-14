@@ -119,6 +119,13 @@ class S:
     STATUS_PICK_EVENT       = "You have several pending appointments. Select one:"
     STATUS_PICK_PH          = "Select appointment..."
 
+    # ── /timely edit_type ────────────────────────────────────────────────────
+    TYPE_UPDATED            = "Button **{old}** updated."
+    TYPE_LABEL_CHANGED      = "\nNew label: **{new}**"
+    TYPE_ROLE_CLEARED       = "\n{field} cleared."
+    TYPE_CREATOR_ROLE_SET   = "\nCreator role set to: {role}"
+    TYPE_INVITEE_ROLE_SET   = "\nInvitee role set to: {role}"
+
     # ── /timely disable / enable ─────────────────────────────────────────────
     PANEL_DISABLED          = "Appointments are currently unavailable. Please check back later."
     PANEL_ALREADY_DISABLED  = "Panel **{name}** is already disabled."

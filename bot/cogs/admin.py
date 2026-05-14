@@ -19,6 +19,27 @@ def _require_manage_guild():
     return app_commands.check(predicate)
 
 
+async def _type_autocomplete(
+    interaction: discord.Interaction, current: str
+) -> list[app_commands.Choice[str]]:
+    panel_name = getattr(interaction.namespace, "panel", None)
+    if not panel_name:
+        return []
+    async with SessionLocal() as session:
+        db_panel = await _get_panel(session, interaction.guild_id, panel_name)
+        if not db_panel:
+            return []
+        result = await session.execute(
+            select(AppointmentType).where(AppointmentType.panel_id == db_panel.id)
+        )
+        types = result.scalars().all()
+    return [
+        app_commands.Choice(name=t.label, value=t.label)
+        for t in types
+        if current.lower() in t.label.lower()
+    ][:25]
+
+
 async def _panel_autocomplete(
     interaction: discord.Interaction, current: str
 ) -> list[app_commands.Choice[str]]:
@@ -216,7 +237,77 @@ class AdminCog(commands.Cog):
 
     @timely.command(name="list_types", description="Zeige alle Buttons eines Panels")
     @_require_manage_guild()
-    @app_commands.describe(panel="Name des Panels")
+    @timely.command(name="edit_type", description="Edit an existing appointment type button")
+    @_require_manage_guild()
+    @app_commands.describe(
+        panel="Panel containing the button",
+        label="Current button label",
+        new_label="New label (leave empty to keep current)",
+        nur_ersteller_mit_rolle="Update creator role restriction (use @everyone to clear)",
+        nur_diese_rolle_einladen="Update invitee role restriction (use @everyone to clear)",
+    )
+    @app_commands.autocomplete(panel=_panel_autocomplete, label=_type_autocomplete)
+    async def edit_type(
+        self,
+        interaction: discord.Interaction,
+        panel: str,
+        label: str,
+        new_label: str | None = None,
+        nur_ersteller_mit_rolle: discord.Role | None = None,
+        nur_diese_rolle_einladen: discord.Role | None = None,
+    ) -> None:
+        async with SessionLocal() as session:
+            db_panel = await _get_panel(session, interaction.guild_id, panel)
+            if db_panel is None:
+                await interaction.response.send_message(S.PANEL_NOT_FOUND.format(name=panel), ephemeral=True)
+                return
+
+            result = await session.execute(
+                select(AppointmentType).where(
+                    AppointmentType.panel_id == db_panel.id,
+                    AppointmentType.label == label,
+                )
+            )
+            apt = result.scalar_one_or_none()
+            if apt is None:
+                await interaction.response.send_message(S.TYPE_NOT_FOUND.format(label=label, panel=panel), ephemeral=True)
+                return
+
+            old_label = apt.label
+            label_changed = new_label and new_label != old_label
+
+            if new_label:
+                apt.label = new_label
+            if nur_ersteller_mit_rolle is not None:
+                # @everyone means "clear the restriction"
+                apt.required_creator_role_id = None if nur_ersteller_mit_rolle.is_default() else nur_ersteller_mit_rolle.id
+            if nur_diese_rolle_einladen is not None:
+                apt.restrict_invitees_to_role_id = None if nur_diese_rolle_einladen.is_default() else nur_diese_rolle_einladen.id
+
+            await session.commit()
+
+        parts = [S.TYPE_UPDATED.format(old=old_label)]
+        if label_changed:
+            parts.append(S.TYPE_LABEL_CHANGED.format(new=new_label))
+        if nur_ersteller_mit_rolle is not None:
+            if nur_ersteller_mit_rolle.is_default():
+                parts.append(S.TYPE_ROLE_CLEARED.format(field="Creator role"))
+            else:
+                parts.append(S.TYPE_CREATOR_ROLE_SET.format(role=nur_ersteller_mit_rolle.mention))
+        if nur_diese_rolle_einladen is not None:
+            if nur_diese_rolle_einladen.is_default():
+                parts.append(S.TYPE_ROLE_CLEARED.format(field="Invitee role"))
+            else:
+                parts.append(S.TYPE_INVITEE_ROLE_SET.format(role=nur_diese_rolle_einladen.mention))
+
+        if label_changed:
+            parts.append(f"\nUse `/timely refresh_panel panel:{panel}` to update the panel buttons.")
+
+        await interaction.response.send_message("".join(parts), ephemeral=True)
+
+    @timely.command(name="list_types", description="Show all buttons in a panel")
+    @_require_manage_guild()
+    @app_commands.describe(panel="Name of the panel")
     @app_commands.autocomplete(panel=_panel_autocomplete)
     async def list_types(self, interaction: discord.Interaction, panel: str) -> None:
         async with SessionLocal() as session:
