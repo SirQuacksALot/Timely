@@ -444,25 +444,39 @@ class AdminCog(commands.Cog):
 
     # ── User Commands ──────────────────────────────────────────────────────────
 
-    @timely.command(name="status", description="Show the status of your open appointment requests")
-    async def status(self, interaction: discord.Interaction) -> None:
+    @timely.command(name="status", description="Show your appointment requests")
+    @app_commands.describe(filter="Which requests to show (default: all)")
+    @app_commands.choices(filter=[
+        app_commands.Choice(name="All", value="all"),
+        app_commands.Choice(name="Open", value="open"),
+        app_commands.Choice(name="Confirmed", value="confirmed"),
+        app_commands.Choice(name="Cancelled", value="cancelled"),
+    ])
+    async def status(self, interaction: discord.Interaction, filter: str = "all") -> None:
         from bot.views.creator_view import CreatorView, build_status_embed, fetch_event_data
+
+        status_filter = {
+            "open": [EventStatus.OPEN],
+            "confirmed": [EventStatus.CONFIRMED],
+            "cancelled": [EventStatus.CANCELLED],
+            "all": [EventStatus.OPEN, EventStatus.CONFIRMED, EventStatus.CANCELLED],
+        }[filter]
 
         async with SessionLocal() as session:
             result = await session.execute(
                 select(Event).where(
                     Event.guild_id == interaction.guild_id,
                     Event.creator_id == interaction.user.id,
-                    Event.status == EventStatus.OPEN,
-                )
+                    Event.status.in_(status_filter),
+                ).order_by(Event.created_at.desc())
             )
             events = result.scalars().all()
 
             if not events:
-                await interaction.response.send_message(S.STATUS_NO_OPEN_EVENTS, ephemeral=True)
+                await interaction.response.send_message(S.STATUS_NO_EVENTS, ephemeral=True)
                 return
 
-            if len(events) == 1:
+            if len(events) == 1 and events[0].status == EventStatus.OPEN:
                 event, slots, participants, votes = await fetch_event_data(session, events[0].id)
                 embed = build_status_embed(event, list(slots), list(participants), list(votes), interaction.guild)
                 view = CreatorView(event_id=event.id)
@@ -552,9 +566,23 @@ class EventPickerView(discord.ui.View):
         self.add_item(EventPickerSelect(events))
 
 
+_STATUS_EMOJI = {
+    EventStatus.OPEN: "🔄",
+    EventStatus.CONFIRMED: "✅",
+    EventStatus.CANCELLED: "❌",
+}
+
+
 class EventPickerSelect(discord.ui.Select):
     def __init__(self, events: list[Event]) -> None:
-        options = [discord.SelectOption(label=e.title[:100], value=str(e.id)) for e in events[:25]]
+        options = [
+            discord.SelectOption(
+                label=e.title[:90],
+                description=f"{_STATUS_EMOJI.get(e.status, '')} {e.status.value.capitalize()}",
+                value=str(e.id),
+            )
+            for e in events[:25]
+        ]
         super().__init__(placeholder=S.STATUS_PICK_PH, options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:

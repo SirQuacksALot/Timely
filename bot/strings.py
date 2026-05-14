@@ -116,7 +116,8 @@ class S:
 
     # ── /timely status ────────────────────────────────────────────────────────
     STATUS_NO_OPEN_EVENTS   = "You have no pending appointments."
-    STATUS_PICK_EVENT       = "You have several pending appointments. Select one:"
+    STATUS_NO_EVENTS        = "No appointments found for the selected filter."
+    STATUS_PICK_EVENT       = "Select an appointment to view its details:"
     STATUS_PICK_PH          = "Select appointment..."
 
     # ── All declined ─────────────────────────────────────────────────────────
