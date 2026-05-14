@@ -181,7 +181,7 @@ class CreatorView(discord.ui.View):
         super().__init__(timeout=None)
         self.event_id = event_id
 
-    @discord.ui.button(label="Termin abbrechen", style=discord.ButtonStyle.danger, emoji="❌")
+    @discord.ui.button(label="Terminanfrage abbrechen", style=discord.ButtonStyle.danger)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         async with SessionLocal() as session:
             event, _, participants, _ = await fetch_event_data(session, self.event_id)
