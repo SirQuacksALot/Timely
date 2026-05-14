@@ -34,6 +34,7 @@ timeline
         Code of Conduct       : Contributor Covenant 2.1
 
     section Future
+        Cancel confirmed      : Organiser can cancel confirmed appointments, participant notification
         Auto-translation      : Automatic string translation via external API
 ```
 
@@ -55,7 +56,11 @@ timeline
 | Multi-panel support | ✅ Done | P2 |
 | edit_type / disable / enable | ✅ Done | P2 |
 | /timely announce | ✅ Done | P2 |
+| Rate limiting per button | ✅ Done | P2 |
+| /timely status with filter | ✅ Done | P2 |
+| Auto-cancel when all decline | ✅ Done | P1 |
 | Reminders | ✅ Done | P3 |
 | Localisation (strings.py) | ✅ Done | P3 |
 | DM auto-delete persistence | ✅ Done | P4 |
+| Cancel confirmed appointments | 🔲 Planned | P3 |
 | Auto-translation | 🔲 Planned | P4 |
