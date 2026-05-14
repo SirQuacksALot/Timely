@@ -167,9 +167,12 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
----
+##
 
-<div align="center">
-  <img src="assets/avatar.png" width="160" alt="Timely mascot" /><br/>
-  <sub><i>"I'd love to help you find a time — but first, have you tried just sending a spreadsheet?"</i></sub>
-</div>
+<img src="assets/avatar.png" width="140" alt="Timely mascot" align="left" />
+
+<br>
+
+*"I'd love to help you find a time — but first, have you tried just sending a spreadsheet?"*
+
+<br clear="left" />
