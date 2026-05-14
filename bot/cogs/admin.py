@@ -235,8 +235,6 @@ class AdminCog(commands.Cog):
             ephemeral=True,
         )
 
-    @timely.command(name="list_types", description="Zeige alle Buttons eines Panels")
-    @_require_manage_guild()
     @timely.command(name="edit_type", description="Edit an existing appointment type button")
     @_require_manage_guild()
     @app_commands.describe(
