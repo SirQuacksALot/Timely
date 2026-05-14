@@ -104,9 +104,86 @@ class AdminCog(commands.Cog):
             return
 
         channel = interaction.guild.get_channel(config.panel_channel_id)
-        embed, view = build_panel(types)
-        await channel.send(embed=embed, view=view)
+        embed, view = build_panel(list(types))
+        msg = await channel.send(embed=embed, view=view)
+
+        async with SessionLocal() as session:
+            config = await session.get(ServerConfig, interaction.guild_id)
+            config.panel_message_id = msg.id
+            await session.commit()
+
         await interaction.response.send_message("Panel gepostet.", ephemeral=True)
+
+    @timely.command(name="remove_type", description="Entferne einen Termintyp")
+    @_require_manage_guild()
+    @app_commands.describe(label="Bezeichnung des zu entfernenden Termintyps")
+    async def remove_type(self, interaction: discord.Interaction, label: str) -> None:
+        from sqlalchemy import delete
+
+        async with SessionLocal() as session:
+            result = await session.execute(
+                select(AppointmentType).where(
+                    AppointmentType.guild_id == interaction.guild_id,
+                    AppointmentType.label == label,
+                )
+            )
+            apt = result.scalar_one_or_none()
+            if apt is None:
+                await interaction.response.send_message(
+                    f"Kein Termintyp mit der Bezeichnung **{label}** gefunden.", ephemeral=True
+                )
+                return
+            await session.delete(apt)
+            await session.commit()
+
+        await interaction.response.send_message(
+            f"Termintyp **{label}** entfernt. Nutze `/timely refresh_panel` um das Panel zu aktualisieren.",
+            ephemeral=True,
+        )
+
+    @timely.command(name="refresh_panel", description="Panel löschen und neu posten")
+    @_require_manage_guild()
+    async def refresh_panel(self, interaction: discord.Interaction) -> None:
+        from bot.views.panel_view import build_panel
+
+        async with SessionLocal() as session:
+            config = await session.get(ServerConfig, interaction.guild_id)
+            if config is None or not config.panel_channel_id:
+                await interaction.response.send_message(
+                    "Kein Panel-Channel konfiguriert. Bitte zuerst `/timely setup`.", ephemeral=True
+                )
+                return
+
+            result = await session.execute(
+                select(AppointmentType).where(AppointmentType.guild_id == interaction.guild_id)
+            )
+            types = result.scalars().all()
+
+        channel = interaction.guild.get_channel(config.panel_channel_id)
+
+        # Delete old panel message if we have the ID
+        if config.panel_message_id:
+            try:
+                old_msg = await channel.fetch_message(config.panel_message_id)
+                await old_msg.delete()
+            except discord.NotFound:
+                pass
+
+        if not types:
+            await interaction.response.send_message(
+                "Keine Termintypen vorhanden. Panel wurde gelöscht.", ephemeral=True
+            )
+            return
+
+        embed, view = build_panel(list(types))
+        msg = await channel.send(embed=embed, view=view)
+
+        async with SessionLocal() as session:
+            config = await session.get(ServerConfig, interaction.guild_id)
+            config.panel_message_id = msg.id
+            await session.commit()
+
+        await interaction.response.send_message("Panel aktualisiert.", ephemeral=True)
 
     # ── User commands ──────────────────────────────────────────────────────────
 
