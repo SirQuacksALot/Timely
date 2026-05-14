@@ -26,6 +26,8 @@ class ParticipantPickerView(discord.ui.View):
         title: str,
         description: str,
         raw_slots: str,
+        creator_id: int,
+        eligible_members: list[discord.Member] | None = None,
     ) -> None:
         super().__init__(timeout=300)
         self.apt = apt
@@ -34,15 +36,24 @@ class ParticipantPickerView(discord.ui.View):
         self.slots = _parse_slots(raw_slots)
         self.selected_users: list[discord.Member] = []
 
-        self.add_item(ParticipantSelect(apt))
+        if eligible_members is not None:
+            # Role-restricted: show only eligible members in a regular Select
+            self.add_item(RoleFilteredSelect(eligible_members))
+        else:
+            # No restriction: show all members, but block creator in callback
+            self.add_item(OpenSelect(creator_id))
 
     @discord.ui.button(label="Termin erstellen & Einladungen senden", style=discord.ButtonStyle.success, row=1)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not self.selected_users:
-            await interaction.response.send_message("Bitte mindestens einen Teilnehmer auswählen.", ephemeral=True)
+            await interaction.response.send_message(
+                "Bitte mindestens einen Teilnehmer auswählen.", ephemeral=True
+            )
             return
         if not self.slots:
-            await interaction.response.send_message("Keine gültigen Zeitvorschläge gefunden.", ephemeral=True)
+            await interaction.response.send_message(
+                "Keine gültigen Zeitvorschläge gefunden. Format: JJJJ-MM-TT HH:MM", ephemeral=True
+            )
             return
 
         await self._create_event_and_notify(interaction)
@@ -78,7 +89,6 @@ class ParticipantPickerView(discord.ui.View):
             )
             db_slots = result.scalars().all()
 
-        # DM all participants
         failed: list[str] = []
         for member in self.selected_users:
             try:
@@ -87,42 +97,68 @@ class ParticipantPickerView(discord.ui.View):
             except discord.Forbidden:
                 failed.append(member.display_name)
 
-        msg = f"Termin **{self.title}** erstellt! Einladungen wurden versendet.\nNutze `/timely status` um den Abstimmungsstand zu sehen und den finalen Slot zu bestätigen."
+        msg = (
+            f"Termin **{self.title}** erstellt! Einladungen wurden versendet.\n"
+            "Nutze `/timely status` um den Abstimmungsstand zu sehen und den finalen Slot zu bestätigen."
+        )
         if failed:
             msg += f"\nFolgende Nutzer konnten nicht per DM erreicht werden: {', '.join(failed)}"
 
         await interaction.response.edit_message(content=msg, view=None)
 
 
-class ParticipantSelect(discord.ui.UserSelect):
-    def __init__(self, apt: AppointmentType) -> None:
+class RoleFilteredSelect(discord.ui.Select):
+    """Select pre-populated with only members who have the required role."""
+
+    def __init__(self, members: list[discord.Member]) -> None:
+        self._member_map = {m.id: m for m in members}
+        options = [
+            discord.SelectOption(label=m.display_name[:100], value=str(m.id))
+            for m in members[:25]
+        ]
+        super().__init__(
+            placeholder="Teilnehmer auswählen...",
+            min_values=1,
+            max_values=min(len(options), 25),
+            options=options,
+            row=0,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        view: ParticipantPickerView = self.view
+        view.selected_users = [self._member_map[int(v)] for v in self.values]
+        await interaction.response.defer()
+
+
+class OpenSelect(discord.ui.UserSelect):
+    """UserSelect for unrestricted events — blocks the creator from being selected."""
+
+    def __init__(self, creator_id: int) -> None:
         super().__init__(
             placeholder="Teilnehmer auswählen...",
             min_values=1,
             max_values=10,
             row=0,
         )
-        self.apt = apt
+        self.creator_id = creator_id
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view: ParticipantPickerView = self.view
+        selected = [m for m in self.values if m.id != self.creator_id]
+        creator_was_selected = len(selected) < len(self.values)
 
-        # Filter by invitee role restriction if set
-        if self.apt.restrict_invitees_to_role_id:
-            allowed = [
-                m for m in self.values
-                if any(r.id == self.apt.restrict_invitees_to_role_id for r in m.roles)
-            ]
-            rejected = [m for m in self.values if m not in allowed]
-            if rejected:
-                names = ", ".join(m.display_name for m in rejected)
-                await interaction.response.send_message(
-                    f"Folgende Nutzer haben nicht die benötigte Rolle und wurden entfernt: {names}",
-                    ephemeral=True,
-                )
-                view.selected_users = allowed
-                return
-        else:
-            view.selected_users = list(self.values)
+        view.selected_users = selected
+
+        if creator_was_selected and not selected:
+            await interaction.response.send_message(
+                "Du kannst dich nicht selbst als Teilnehmer auswählen.", ephemeral=True
+            )
+            return
+
+        if creator_was_selected:
+            await interaction.response.send_message(
+                "Du wurdest als Ersteller automatisch aus den Teilnehmern entfernt.", ephemeral=True
+            )
+            return
 
         await interaction.response.defer()
