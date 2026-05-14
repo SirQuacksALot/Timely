@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from bot.database.db import SessionLocal
 from bot.database.models import AppointmentType, Event, EventStatus, Panel, ServerConfig
+from bot.strings import S
 
 
 def _require_manage_guild():

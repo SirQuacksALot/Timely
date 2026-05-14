@@ -1,7 +1,9 @@
-"""Step 1 of event creation: select participants, then open the event modal."""
+"""Step 1 of event creation: select participants, then open the slot picker."""
 from __future__ import annotations
 
 import discord
+
+from bot.strings import S
 
 
 class ParticipantPickerView(discord.ui.View):
@@ -21,24 +23,18 @@ class ParticipantPickerView(discord.ui.View):
         else:
             self.add_item(OpenSelect(creator_id))
 
-    @discord.ui.button(label="Weiter →", style=discord.ButtonStyle.primary, row=1)
+    @discord.ui.button(label=S.PROCEED_BUTTON, style=discord.ButtonStyle.primary, row=1)
     async def proceed(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not self.selected_users:
-            await interaction.response.send_message(
-                "Bitte mindestens einen Teilnehmer auswählen.", ephemeral=True
-            )
+            await interaction.response.send_message(S.MIN_ONE_PARTICIPANT, ephemeral=True)
             return
 
         from bot.views.slot_picker import SlotPickerView, _picker_content
         view = SlotPickerView(apt_id=self.apt_id, participants=self.selected_users)
-        await interaction.response.edit_message(
-            content=_picker_content([]), view=view
-        )
+        await interaction.response.edit_message(content=_picker_content([]), view=view)
 
 
 class RoleFilteredSelect(discord.ui.Select):
-    """Pre-populated with only members who have the required role."""
-
     def __init__(self, members: list[discord.Member]) -> None:
         self._member_map = {m.id: m for m in members}
         options = [
@@ -46,7 +42,7 @@ class RoleFilteredSelect(discord.ui.Select):
             for m in members[:25]
         ]
         super().__init__(
-            placeholder="Teilnehmer auswählen...",
+            placeholder=S.SELECT_PARTICIPANTS,
             min_values=1,
             max_values=min(len(options), 25),
             options=options,
@@ -60,11 +56,9 @@ class RoleFilteredSelect(discord.ui.Select):
 
 
 class OpenSelect(discord.ui.UserSelect):
-    """Unrestricted member selection — blocks the creator from being selected."""
-
     def __init__(self, creator_id: int) -> None:
         super().__init__(
-            placeholder="Teilnehmer auswählen...",
+            placeholder=S.SELECT_PARTICIPANTS,
             min_values=1,
             max_values=10,
             row=0,
@@ -78,15 +72,10 @@ class OpenSelect(discord.ui.UserSelect):
         view.selected_users = selected
 
         if creator_excluded and not selected:
-            await interaction.response.send_message(
-                "Du kannst dich nicht selbst als Teilnehmer auswählen.", ephemeral=True
-            )
+            await interaction.response.send_message(S.CREATOR_SELF_SELECT, ephemeral=True)
             return
         if creator_excluded:
-            await interaction.response.send_message(
-                "Du wurdest als Ersteller automatisch aus den Teilnehmern entfernt.",
-                ephemeral=True,
-            )
+            await interaction.response.send_message(S.CREATOR_AUTO_REMOVED, ephemeral=True)
             return
 
         await interaction.response.defer()

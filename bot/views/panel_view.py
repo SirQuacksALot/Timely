@@ -1,14 +1,15 @@
 import discord
 
 from bot.database.models import AppointmentType
+from bot.strings import S
 
 
 def build_panel(
     panel_name: str, types: list[AppointmentType]
 ) -> tuple[discord.Embed, discord.ui.View]:
     embed = discord.Embed(
-        title=f"Termin anfragen — {panel_name}",
-        description="Wähle einen Termintyp, um eine neue Terminanfrage zu stellen.",
+        title=S.PANEL_EMBED_TITLE.format(panel_name=panel_name),
+        description=S.PANEL_EMBED_DESC,
         color=discord.Color.blurple(),
     )
     return embed, PanelView(types)
@@ -39,16 +40,12 @@ class AppointmentTypeButton(discord.ui.Button):
             apt = await session.get(AppointmentType, self.apt_id)
 
         if apt is None:
-            await interaction.response.send_message(
-                "Dieser Termintyp existiert nicht mehr.", ephemeral=True
-            )
+            await interaction.response.send_message(S.TYPE_GONE, ephemeral=True)
             return
 
         if apt.required_creator_role_id:
             if apt.required_creator_role_id not in {r.id for r in interaction.user.roles}:
-                await interaction.response.send_message(
-                    "Du hast keine Berechtigung, diesen Termintyp zu nutzen.", ephemeral=True
-                )
+                await interaction.response.send_message(S.NO_PERMISSION_TYPE, ephemeral=True)
                 return
 
         eligible_members: list[discord.Member] | None = None
@@ -61,10 +58,7 @@ class AppointmentTypeButton(discord.ui.Button):
                 and not m.bot
             ]
             if not eligible_members:
-                await interaction.response.send_message(
-                    "Keine einladbaren Nutzer mit der erforderlichen Rolle gefunden.",
-                    ephemeral=True,
-                )
+                await interaction.response.send_message(S.NO_ELIGIBLE_MEMBERS, ephemeral=True)
                 return
 
         view = ParticipantPickerView(
@@ -72,8 +66,4 @@ class AppointmentTypeButton(discord.ui.Button):
             creator_id=interaction.user.id,
             eligible_members=eligible_members,
         )
-        await interaction.response.send_message(
-            "Schritt 1/2 — Wähle die Teilnehmer für deine Terminanfrage:",
-            view=view,
-            ephemeral=True,
-        )
+        await interaction.response.send_message(S.STEP1_HEADER, view=view, ephemeral=True)

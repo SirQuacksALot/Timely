@@ -4,6 +4,7 @@ from __future__ import annotations
 import discord
 
 from bot.database.models import Event, TimeSlot
+from bot.strings import S
 
 _SEVEN_DAYS = 7 * 24 * 3600
 
@@ -12,20 +13,20 @@ def build_vote_message(
     event: Event,
     slots: list[TimeSlot],
     creator: discord.Member | discord.User,
-) -> tuple[discord.Embed, VoteView]:
+) -> tuple[discord.Embed, "VoteView"]:
     embed = discord.Embed(
-        title=f"Termineinladung: {event.title}",
+        title=S.VOTE_EMBED_TITLE.format(title=event.title),
         color=discord.Color.blurple(),
     )
-    embed.add_field(name="Erstellt von", value=creator.display_name, inline=True)
+    embed.add_field(name=S.VOTE_FIELD_CREATOR, value=creator.display_name, inline=True)
     if event.description:
-        embed.add_field(name="Beschreibung", value=event.description, inline=False)
+        embed.add_field(name=S.VOTE_FIELD_DESC, value=event.description, inline=False)
 
     slot_lines = "\n".join(
         f"`{i+1}.` {s.start_time.strftime('%d.%m.%Y %H:%M')}" for i, s in enumerate(slots)
     )
-    embed.add_field(name="Zeitvorschläge", value=slot_lines, inline=False)
-    embed.set_footer(text="Bitte wähle alle Zeitfenster, die für dich passen. Diese Anfrage läuft in 7 Tagen ab.")
+    embed.add_field(name=S.VOTE_FIELD_SLOTS, value=slot_lines, inline=False)
+    embed.set_footer(text=S.VOTE_FOOTER)
 
     view = VoteView(event_id=event.id, slots=slots)
     return embed, view
@@ -50,7 +51,7 @@ class VoteView(discord.ui.View):
 class DeclineButton(discord.ui.Button):
     def __init__(self, event_id: int) -> None:
         super().__init__(
-            label="Ablehnen",
+            label=S.VOTE_DECLINE_BUTTON,
             style=discord.ButtonStyle.danger,
             row=1,
             custom_id=f"timely:decline:{event_id}",
@@ -67,9 +68,7 @@ class DeclineButton(discord.ui.Button):
                 p.status = ParticipantStatus.DECLINED
                 await session.commit()
 
-        await interaction.response.edit_message(
-            content="Du hast den Termin abgelehnt.", embed=None, view=None
-        )
+        await interaction.response.edit_message(content=S.VOTE_DECLINED, embed=None, view=None)
 
         from bot.views.creator_view import auto_confirm_if_complete
         await auto_confirm_if_complete(self.event_id, interaction.client)
@@ -85,7 +84,7 @@ class SlotSelect(discord.ui.Select):
             for s in slots
         ]
         super().__init__(
-            placeholder="Wähle alle passenden Zeitfenster...",
+            placeholder=S.VOTE_SELECT_PH,
             min_values=0,
             max_values=len(options),
             options=options,
@@ -116,23 +115,19 @@ class SlotSelect(discord.ui.Select):
             )
 
             for slot in all_slots:
-                session.add(
-                    TimeSlotVote(
-                        time_slot_id=slot.id,
-                        participant_user_id=interaction.user.id,
-                        event_id=self.event_id,
-                        available=slot.id in selected_ids,
-                    )
-                )
+                session.add(TimeSlotVote(
+                    time_slot_id=slot.id,
+                    participant_user_id=interaction.user.id,
+                    event_id=self.event_id,
+                    available=slot.id in selected_ids,
+                ))
 
             p = await session.get(Participant, (self.event_id, interaction.user.id))
             if p:
                 p.status = ParticipantStatus.ACCEPTED
             await session.commit()
 
-        await interaction.response.edit_message(
-            content="Deine Verfügbarkeit wurde gespeichert. Danke!", embed=None, view=None
-        )
+        await interaction.response.edit_message(content=S.VOTE_SAVED, embed=None, view=None)
 
         from bot.views.creator_view import auto_confirm_if_complete
         await auto_confirm_if_complete(self.event_id, interaction.client)

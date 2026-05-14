@@ -13,6 +13,9 @@ from bot.database.models import (
     TimeSlot,
     TimeSlotVote,
 )
+from bot.strings import S
+
+_SEVEN_DAYS = 7 * 24 * 3600
 
 _STATUS_ICON = {
     ParticipantStatus.PENDING: "⏳",
@@ -27,26 +30,22 @@ def build_creator_initial_embed(
     participants: list[discord.Member],
 ) -> discord.Embed:
     embed = discord.Embed(
-        title=f"📅 Termin erstellt: {event.title}",
+        title=S.CREATOR_INITIAL_TITLE.format(title=event.title),
         color=discord.Color.blurple(),
     )
     if event.description:
         embed.description = event.description
 
     slot_lines = "\n".join(f"• {s.start_time.strftime('%d.%m.%Y %H:%M')}" for s in slots)
-    embed.add_field(name="Zeitvorschläge", value=slot_lines or "—", inline=False)
+    embed.add_field(name=S.CREATOR_INITIAL_SLOTS, value=slot_lines or "—", inline=False)
 
     participant_lines = "\n".join(f"⏳ {m.display_name}" for m in participants)
-    embed.add_field(name="Eingeladene Teilnehmer", value=participant_lines or "—", inline=False)
-    embed.set_footer(
-        text="Sobald alle geantwortet haben wird der beste Slot automatisch gewählt. "
-             "Du kannst den Termin auch jederzeit manuell bestätigen."
-    )
+    embed.add_field(name=S.CREATOR_INITIAL_MEMBERS, value=participant_lines or "—", inline=False)
+    embed.set_footer(text=S.CREATOR_INITIAL_FOOTER)
     return embed
 
 
 def _vote_counts(slots: list[TimeSlot], votes: list[TimeSlotVote]) -> dict[int, int]:
-    """Count available votes per slot. Creator is NOT included here — added separately."""
     counts = {s.id: 0 for s in slots}
     for v in votes:
         if v.available:
@@ -61,42 +60,40 @@ def build_status_embed(
     votes: list[TimeSlotVote],
     guild: discord.Guild,
 ) -> discord.Embed:
-    # Creator counts as +1 for all slots automatically
-    total = len(participants) + 1
+    total = len(participants) + 1  # +1 for creator
     pending = sum(1 for p in participants if p.status == ParticipantStatus.PENDING)
     color = discord.Color.green() if event.status == EventStatus.CONFIRMED else discord.Color.blurple()
 
-    embed = discord.Embed(title=f"📅 {event.title}", color=color)
+    embed = discord.Embed(title=S.CREATOR_STATUS_TITLE.format(title=event.title), color=color)
     if event.description:
         embed.description = event.description
 
-    status_label = "✅ Bestätigt" if event.status == EventStatus.CONFIRMED else "🔄 Offen"
+    status_label = S.CREATOR_STATUS_CONFIRMED if event.status == EventStatus.CONFIRMED else S.CREATOR_STATUS_OPEN
     responded = total - pending
-    embed.add_field(name="Status", value=status_label, inline=True)
-    embed.add_field(name="Antworten", value=f"{responded}/{total}", inline=True)
+    embed.add_field(name=S.CREATOR_FIELD_STATUS, value=status_label, inline=True)
+    embed.add_field(name=S.CREATOR_FIELD_ANSWERS, value=f"{responded}/{total}", inline=True)
     if pending:
-        embed.add_field(name="Ausstehend", value=str(pending), inline=True)
+        embed.add_field(name=S.CREATOR_FIELD_PENDING, value=str(pending), inline=True)
 
     counts = _vote_counts(slots, votes)
-    # Add creator's automatic +1 to all slots
     for slot_id in counts:
-        counts[slot_id] += 1
+        counts[slot_id] += 1  # Creator always available
 
     sorted_slots = sorted(slots, key=lambda s: counts[s.id], reverse=True)
     slot_lines = []
     for s in sorted_slots:
         n = counts[s.id]
         icon = "✅" if n == total else ("⚠️" if n > 0 else "❌")
-        confirmed = " ← bestätigt" if event.confirmed_slot_id == s.id else ""
+        confirmed = S.CREATOR_SLOT_CONFIRMED if event.confirmed_slot_id == s.id else ""
         slot_lines.append(f"{icon} {s.start_time.strftime('%d.%m.%Y %H:%M')} — {n}/{total}{confirmed}")
-    embed.add_field(name="Zeitvorschläge", value="\n".join(slot_lines) or "—", inline=False)
+    embed.add_field(name=S.CREATOR_FIELD_SLOTS, value="\n".join(slot_lines) or "—", inline=False)
 
-    participant_lines = ["✅ Du (automatisch für alle Slots verfügbar)"]
+    participant_lines = [S.CREATOR_AUTO_AVAILABLE]
     for p in participants:
         member = guild.get_member(p.user_id)
         name = member.display_name if member else f"<{p.user_id}>"
         participant_lines.append(f"{_STATUS_ICON[p.status]} {name}")
-    embed.add_field(name="Teilnehmer", value="\n".join(participant_lines), inline=False)
+    embed.add_field(name=S.CREATOR_FIELD_MEMBERS, value="\n".join(participant_lines), inline=False)
 
     return embed
 
@@ -115,7 +112,6 @@ async def fetch_event_data(
 
 
 async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> None:
-    """Called after every participant vote. Confirms automatically when all have responded."""
     from bot.ical import build_ics
 
     async with SessionLocal() as session:
@@ -124,22 +120,15 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
         if event.status != EventStatus.OPEN:
             return
 
-        pending = [p for p in participants if p.status == ParticipantStatus.PENDING]
-        if pending:
-            return  # Still waiting on responses
+        if any(p.status == ParticipantStatus.PENDING for p in participants):
+            return
 
-        # All responded — pick best slot
-        # Creator counts as +1 for all slots
         counts: dict[int, int] = {s.id: 1 for s in slots}
         for v in votes:
             if v.available:
                 counts[v.time_slot_id] += 1
 
-        best_slot = max(
-            slots,
-            key=lambda s: (counts[s.id], -s.start_time.timestamp()),
-        )
-
+        best_slot = max(slots, key=lambda s: (counts[s.id], -s.start_time.timestamp()))
         event.status = EventStatus.CONFIRMED
         event.confirmed_slot_id = best_slot.id
         await session.commit()
@@ -149,23 +138,22 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
         event_title = event.title
         event_description = event.description or ""
         best_time = best_slot.start_time
+        total = len(participants) + 1
+        best_count = counts[best_slot.id]
 
     final_time = best_time.strftime("%d.%m.%Y um %H:%M Uhr")
-    total = len(participants) + 1
-    best_count = counts[best_slot.id]
-
     embed = discord.Embed(
-        title=f"📅 Termin bestätigt: {event_title}",
-        description=f"Der finale Termin steht fest:\n**{final_time}**",
+        title=S.CONFIRM_EMBED_TITLE.format(title=event_title),
+        description=S.CONFIRM_EMBED_DESC.format(time=final_time),
         color=discord.Color.green(),
     )
     if best_count < total:
         embed.add_field(
-            name="Hinweis",
-            value=f"Kein Slot passte allen — gewählt wurde der Slot mit der höchsten Verfügbarkeit ({best_count}/{total}).",
+            name=S.CONFIRM_FIELD_HINT,
+            value=S.CONFIRM_NO_PERFECT_SLOT.format(count=best_count, total=total),
             inline=False,
         )
-    embed.set_footer(text="Die .ics Datei im Anhang kannst du direkt in deinen Kalender importieren.")
+    embed.set_footer(text=S.CONFIRM_FOOTER)
 
     for user_id in notify_ids:
         try:
@@ -174,9 +162,6 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
             await user.send(embed=embed, file=discord.File(ics, filename="termin.ics"))
         except discord.Forbidden:
             pass
-
-
-_SEVEN_DAYS = 7 * 24 * 3600
 
 
 class CreatorView(discord.ui.View):
@@ -192,16 +177,16 @@ class CreatorView(discord.ui.View):
             except (discord.NotFound, discord.Forbidden):
                 pass
 
-    @discord.ui.button(label="Terminanfrage abbrechen", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label=S.CREATOR_CANCEL_BUTTON, style=discord.ButtonStyle.danger)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         async with SessionLocal() as session:
             event, _, participants, _ = await fetch_event_data(session, self.event_id)
 
         if not event or event.creator_id != interaction.user.id:
-            await interaction.response.send_message("Kein Zugriff.", ephemeral=True)
+            await interaction.response.send_message(S.NO_ACCESS, ephemeral=True)
             return
         if event.status != EventStatus.OPEN:
-            await interaction.response.send_message("Dieser Termin ist bereits abgeschlossen.", ephemeral=True)
+            await interaction.response.send_message(S.ALREADY_DONE, ephemeral=True)
             return
 
         async with SessionLocal() as session:
@@ -210,10 +195,9 @@ class CreatorView(discord.ui.View):
             await session.commit()
             event_title = event.title
 
-        # Notify all participants about cancellation
         embed = discord.Embed(
-            title=f"❌ Termin abgesagt: {event_title}",
-            description="Der Terminanfrage wurde vom Ersteller abgesagt.",
+            title=S.CANCEL_EMBED_TITLE.format(title=event_title),
+            description=S.CANCEL_EMBED_DESC,
             color=discord.Color.red(),
         )
         for p in participants:
@@ -224,7 +208,7 @@ class CreatorView(discord.ui.View):
                 pass
 
         await interaction.response.edit_message(
-            content=f"Termin **{event_title}** wurde abgesagt. Alle Teilnehmer wurden informiert.",
+            content=S.CANCEL_CONFIRMED.format(title=event_title),
             embed=None,
             view=None,
         )
@@ -245,7 +229,7 @@ class ConfirmSlotSelect(discord.ui.Select):
             )
             for s in slots
         ]
-        super().__init__(placeholder="Finalen Slot wählen...", options=options)
+        super().__init__(placeholder=S.DATE_PLACEHOLDER, options=options)
         self.event_id = event_id
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -269,11 +253,11 @@ class ConfirmSlotSelect(discord.ui.Select):
 
         final_time = slot.start_time.strftime("%d.%m.%Y um %H:%M Uhr")
         embed = discord.Embed(
-            title=f"📅 Termin bestätigt: {event_title}",
-            description=f"Der finale Termin steht fest:\n**{final_time}**",
+            title=S.CONFIRM_EMBED_TITLE.format(title=event_title),
+            description=S.CONFIRM_EMBED_DESC.format(time=final_time),
             color=discord.Color.green(),
         )
-        embed.set_footer(text="Die .ics Datei im Anhang kannst du direkt in deinen Kalender importieren.")
+        embed.set_footer(text=S.CONFIRM_FOOTER)
 
         for user_id in notify_ids:
             try:
@@ -284,6 +268,6 @@ class ConfirmSlotSelect(discord.ui.Select):
                 pass
 
         await interaction.response.edit_message(
-            content=f"Termin **{event_title}** auf **{final_time}** bestätigt. Alle wurden informiert.",
+            content=S.CONFIRM_SUCCESS.format(title=event_title, time=final_time),
             view=None,
         )

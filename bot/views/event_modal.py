@@ -7,24 +7,25 @@ import discord
 
 from bot.database.db import SessionLocal
 from bot.database.models import Event, Participant, TimeSlot
+from bot.strings import S
 
 
-class EventModal(discord.ui.Modal, title="Schritt 3/3 — Termin Details"):
+class EventModal(discord.ui.Modal):
     event_title = discord.ui.TextInput(
-        label="Titel",
-        placeholder="z.B. Team-Meeting Q2",
+        label=S.MODAL_FIELD_TITLE,
+        placeholder=S.MODAL_FIELD_TITLE_PH,
         max_length=200,
     )
     description = discord.ui.TextInput(
-        label="Beschreibung",
-        placeholder="Worum geht es?",
+        label=S.MODAL_FIELD_DESC,
+        placeholder=S.MODAL_FIELD_DESC_PH,
         style=discord.TextStyle.paragraph,
         required=False,
         max_length=2000,
     )
 
     def __init__(self, apt_id: int, participants: list[discord.Member], slots: list[datetime]) -> None:
-        super().__init__()
+        super().__init__(title=S.MODAL_TITLE)
         self.apt_id = apt_id
         self.participants = participants
         self.slots = slots
@@ -55,7 +56,6 @@ class EventModal(discord.ui.Modal, title="Schritt 3/3 — Termin Details"):
                 session.add(Participant(event_id=event.id, user_id=member.id))
 
             await session.commit()
-
             await session.refresh(event)
             for slot in db_slots:
                 await session.refresh(slot)
@@ -77,12 +77,8 @@ class EventModal(discord.ui.Modal, title="Schritt 3/3 — Termin Details"):
         except discord.Forbidden:
             pass
 
-        msg = (
-            f"Terminanfrage **{self.event_title.value}** erstellt! "
-            f"Einladungen wurden an {len(self.participants)} Teilnehmer versendet.\n"
-            "Du erhältst die Status-Übersicht per DM."
-        )
+        msg = S.EVENT_CREATED.format(title=self.event_title.value, count=len(self.participants))
         if failed:
-            msg += f"\nFolgende Nutzer konnten nicht per DM erreicht werden: {', '.join(failed)}"
+            msg += S.EVENT_CREATED_DM_FAILED.format(names=", ".join(failed))
 
         await interaction.response.send_message(msg, ephemeral=True)

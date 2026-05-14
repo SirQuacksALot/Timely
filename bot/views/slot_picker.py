@@ -5,6 +5,8 @@ from datetime import date, datetime, timedelta
 
 import discord
 
+from bot.strings import S
+
 _DAYS_AHEAD = 21
 _WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
@@ -18,15 +20,11 @@ def _format_slots(slots: list[datetime]) -> str:
     if not slots:
         return ""
     lines = "\n".join(f"• {s.strftime('%d.%m.%Y %H:%M')}" for s in slots)
-    return f"**Hinzugefügte Slots:**\n{lines}\n\n"
+    return f"{S.SLOTS_ADDED_LABEL}\n{lines}\n\n"
 
 
 def _picker_content(slots: list[datetime]) -> str:
-    return (
-        f"**Schritt 2/3 — Zeitvorschläge**\n\n"
-        f"{_format_slots(slots)}"
-        "Wähle Datum, Stunde und Minute, dann klicke **+ Slot hinzufügen**."
-    )
+    return f"{S.STEP2_HEADER}\n\n{_format_slots(slots)}{S.STEP2_INSTRUCTION}"
 
 
 class SlotPickerView(discord.ui.View):
@@ -68,7 +66,7 @@ class _DateSelect(discord.ui.Select):
             )
             for d in dates
         ]
-        super().__init__(placeholder="Datum wählen", options=options, row=0)
+        super().__init__(placeholder=S.DATE_PLACEHOLDER, options=options, row=0)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view: SlotPickerView = self.view
@@ -80,14 +78,10 @@ class _DateSelect(discord.ui.Select):
 class _HourSelect(discord.ui.Select):
     def __init__(self, selected: int) -> None:
         options = [
-            discord.SelectOption(
-                label=f"{h:02d}:xx",
-                value=str(h),
-                default=(h == selected),
-            )
+            discord.SelectOption(label=f"{h:02d}:xx", value=str(h), default=(h == selected))
             for h in range(24)
         ]
-        super().__init__(placeholder="Stunde wählen", options=options, row=1)
+        super().__init__(placeholder=S.HOUR_PLACEHOLDER, options=options, row=1)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view: SlotPickerView = self.view
@@ -99,14 +93,10 @@ class _HourSelect(discord.ui.Select):
 class _MinuteSelect(discord.ui.Select):
     def __init__(self, selected: int) -> None:
         options = [
-            discord.SelectOption(
-                label=f":{m:02d}",
-                value=str(m),
-                default=(m == selected),
-            )
+            discord.SelectOption(label=f":{m:02d}", value=str(m), default=(m == selected))
             for m in [0, 15, 30, 45]
         ]
-        super().__init__(placeholder="Minute wählen", options=options, row=2)
+        super().__init__(placeholder=S.MINUTE_PLACEHOLDER, options=options, row=2)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view: SlotPickerView = self.view
@@ -117,7 +107,7 @@ class _MinuteSelect(discord.ui.Select):
 
 class _AddButton(discord.ui.Button):
     def __init__(self) -> None:
-        super().__init__(label="+ Slot hinzufügen", style=discord.ButtonStyle.primary, row=3)
+        super().__init__(label=S.ADD_SLOT_BUTTON, style=discord.ButtonStyle.primary, row=3)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view: SlotPickerView = self.view
@@ -129,9 +119,7 @@ class _AddButton(discord.ui.Button):
             view.selected_minute,
         )
         if dt in view.slots:
-            await interaction.response.send_message(
-                "Dieser Slot wurde bereits hinzugefügt.", ephemeral=True
-            )
+            await interaction.response.send_message(S.SLOT_DUPLICATE, ephemeral=True)
             return
 
         view.slots.append(dt)
@@ -143,7 +131,7 @@ class _AddButton(discord.ui.Button):
 class _RemoveLastButton(discord.ui.Button):
     def __init__(self, disabled: bool) -> None:
         super().__init__(
-            label="Letzten entfernen",
+            label=S.REMOVE_LAST_BUTTON,
             style=discord.ButtonStyle.secondary,
             row=3,
             disabled=disabled,
@@ -160,7 +148,7 @@ class _RemoveLastButton(discord.ui.Button):
 class _ProceedButton(discord.ui.Button):
     def __init__(self, disabled: bool) -> None:
         super().__init__(
-            label="Weiter →",
+            label=S.PROCEED_BUTTON,
             style=discord.ButtonStyle.success,
             row=3,
             disabled=disabled,
