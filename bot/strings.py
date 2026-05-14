@@ -119,6 +119,14 @@ class S:
     STATUS_PICK_EVENT       = "You have several pending appointments. Select one:"
     STATUS_PICK_PH          = "Select appointment..."
 
+    # ── /timely announce ─────────────────────────────────────────────────────
+    ANNOUNCE_MODAL_TITLE    = "Post announcement"
+    ANNOUNCE_FIELD_TITLE    = "Title"
+    ANNOUNCE_FIELD_TITLE_PH = "e.g. Book your coaching session here"
+    ANNOUNCE_FIELD_BODY     = "Message"
+    ANNOUNCE_FIELD_BODY_PH  = "Describe what users can do in this channel..."
+    ANNOUNCE_SENT           = "Announcement posted in {channel}."
+
     # ── /timely remind ────────────────────────────────────────────────────────
     REMIND_ALL_ANSWERED     = "All participants have already replied."
     REMIND_SENT             = "Reminder sent to **{count}** participants."

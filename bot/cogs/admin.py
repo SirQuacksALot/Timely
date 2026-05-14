@@ -312,6 +312,13 @@ class AdminCog(commands.Cog):
         action = "aktualisiert" if refresh else "gepostet"
         await interaction.response.send_message(f"Panel **{panel_name}** {action}.", ephemeral=True)
 
+    # ── Announce ───────────────────────────────────────────────────────────────
+
+    @timely.command(name="announce", description="Post a formatted info message in this channel")
+    @_require_manage_guild()
+    async def announce(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(AnnounceModal(channel=interaction.channel))
+
     # ── User Commands ──────────────────────────────────────────────────────────
 
     @timely.command(name="status", description="Zeige den Status deiner offenen Termine")
@@ -458,6 +465,35 @@ class EventPickerSelect(discord.ui.Select):
         embed = build_status_embed(event, list(slots), list(participants), list(votes), interaction.guild)
         view = CreatorView(event_id=event_id)
         await interaction.response.edit_message(content=None, embed=embed, view=view)
+
+
+class AnnounceModal(discord.ui.Modal):
+    announce_title = discord.ui.TextInput(
+        label=S.ANNOUNCE_FIELD_TITLE,
+        placeholder=S.ANNOUNCE_FIELD_TITLE_PH,
+        max_length=200,
+    )
+    body = discord.ui.TextInput(
+        label=S.ANNOUNCE_FIELD_BODY,
+        placeholder=S.ANNOUNCE_FIELD_BODY_PH,
+        style=discord.TextStyle.paragraph,
+        max_length=2000,
+    )
+
+    def __init__(self, channel: discord.TextChannel) -> None:
+        super().__init__(title=S.ANNOUNCE_MODAL_TITLE)
+        self.channel = channel
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        embed = discord.Embed(
+            title=self.announce_title.value,
+            description=self.body.value,
+            color=discord.Color.blurple(),
+        )
+        await self.channel.send(embed=embed)
+        await interaction.response.send_message(
+            S.ANNOUNCE_SENT.format(channel=self.channel.mention), ephemeral=True
+        )
 
 
 async def setup(bot: commands.Bot) -> None:
