@@ -4,6 +4,7 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=flat-square&logo=python&logoColor=white&labelColor=161923&color=1b1e2b)
 [![DOCKER](https://img.shields.io/badge/containerized-white?style=flat-square&logo=docker&logoColor=white&labelColor=161923&color=1b1e2b)](#)
 [![CodeFactor](https://img.shields.io/codefactor/grade/github/sirquacksalot/timely?style=flat-square&logo=devbox&label=%C2%A0&labelColor=161923&color=1b1e2b)](https://www.codefactor.io/repository/github/sirquacksalot/timely)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/SirQuacksAlot/timely/.github/workflows/docker.yml?style=flat-square&logo=github&label=build&labelColor=161923&color=1b1e2b)](#)
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL_1.2-blue.svg?style=flat-square&logo=opensourceinitiative&logoColor=white&labelColor=161923&color=1b1e2b)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square&logo=contributorcovenant&logoColor=white&labelColor=161923&color=1b1e2b)](CODE_OF_CONDUCT.md)
 
