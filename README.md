@@ -8,9 +8,16 @@
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL_1.2-blue.svg?style=flat-square&logo=opensourceinitiative&logoColor=white&labelColor=161923&color=1b1e2b)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square&logo=contributorcovenant&logoColor=white&labelColor=161923&color=1b1e2b)](CODE_OF_CONDUCT.md)
 
-# Timely
+<br clear="left" />
 
-A Discord bot for scheduling appointments and coordinating availability across your server.
+<img src="assets/avatar.png" width="120" alt="Timely mascot" align="left" />
+
+
+### Hi, I'm Timely!
+
+I'm a Discord bot for scheduling appointments and coordinating availability across your server — without the endless back-and-forth.
+
+<br clear="left" />
 
 ## Features
 
@@ -166,13 +173,3 @@ A GitHub Actions workflow (`.github/workflows/docker.yml`) builds and pushes a m
 git tag v1.0.0
 git push origin v1.0.0
 ```
-
-##
-
-<img src="assets/avatar.png" width="140" alt="Timely mascot" align="left" />
-
-<br>
-
-*"I'd love to help you find a time — but first, have you tried just sending a spreadsheet?"*
-
-<br clear="left" />
