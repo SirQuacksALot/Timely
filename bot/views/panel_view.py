@@ -3,10 +3,12 @@ import discord
 from bot.database.models import AppointmentType
 
 
-def build_panel(types: list[AppointmentType]) -> tuple[discord.Embed, discord.ui.View]:
+def build_panel(
+    panel_name: str, types: list[AppointmentType]
+) -> tuple[discord.Embed, discord.ui.View]:
     embed = discord.Embed(
-        title="Termin anfragen",
-        description="Wähle einen Termintyp, um einen neuen Termin zu erstellen.",
+        title=f"Termin anfragen — {panel_name}",
+        description="Wähle einen Termintyp, um eine neue Terminanfrage zu stellen.",
         color=discord.Color.blurple(),
     )
     return embed, PanelView(types)
@@ -30,9 +32,9 @@ class AppointmentTypeButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction) -> None:
         from bot.database.db import SessionLocal
+        from bot.database.models import AppointmentType
         from bot.views.participant_picker import ParticipantPickerView
 
-        # Always re-fetch apt from DB to avoid detached-instance issues
         async with SessionLocal() as session:
             apt = await session.get(AppointmentType, self.apt_id)
 
@@ -42,7 +44,6 @@ class AppointmentTypeButton(discord.ui.Button):
             )
             return
 
-        # Creator role check
         if apt.required_creator_role_id:
             if apt.required_creator_role_id not in {r.id for r in interaction.user.roles}:
                 await interaction.response.send_message(
@@ -50,7 +51,6 @@ class AppointmentTypeButton(discord.ui.Button):
                 )
                 return
 
-        # Build eligible member list when a role restriction is configured
         eligible_members: list[discord.Member] | None = None
         if apt.restrict_invitees_to_role_id:
             role_id = apt.restrict_invitees_to_role_id
@@ -73,7 +73,7 @@ class AppointmentTypeButton(discord.ui.Button):
             eligible_members=eligible_members,
         )
         await interaction.response.send_message(
-            "Schritt 1/2 — Wähle die Teilnehmer für deinen Termin:",
+            "Schritt 1/2 — Wähle die Teilnehmer für deine Terminanfrage:",
             view=view,
             ephemeral=True,
         )
