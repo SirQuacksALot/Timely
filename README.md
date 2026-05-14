@@ -166,3 +166,10 @@ A GitHub Actions workflow (`.github/workflows/docker.yml`) builds and pushes a m
 git tag v1.0.0
 git push origin v1.0.0
 ```
+
+---
+
+<div align="center">
+  <img src="assets/avatar.png" width="160" alt="Timely mascot" /><br/>
+  <sub><i>"I'd love to help you find a time — but first, have you tried just sending a spreadsheet?"</i></sub>
+</div>
