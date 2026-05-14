@@ -5,12 +5,14 @@ import discord
 
 from bot.database.models import Event, TimeSlot
 
+_SEVEN_DAYS = 7 * 24 * 3600
+
 
 def build_vote_message(
     event: Event,
     slots: list[TimeSlot],
     creator: discord.Member | discord.User,
-) -> tuple[discord.Embed, discord.ui.View]:
+) -> tuple[discord.Embed, VoteView]:
     embed = discord.Embed(
         title=f"Termineinladung: {event.title}",
         color=discord.Color.blurple(),
@@ -23,7 +25,7 @@ def build_vote_message(
         f"`{i+1}.` {s.start_time.strftime('%d.%m.%Y %H:%M')}" for i, s in enumerate(slots)
     )
     embed.add_field(name="Zeitvorschläge", value=slot_lines, inline=False)
-    embed.set_footer(text="Bitte wähle alle Zeitfenster, die für dich passen.")
+    embed.set_footer(text="Bitte wähle alle Zeitfenster, die für dich passen. Diese Anfrage läuft in 7 Tagen ab.")
 
     view = VoteView(event_id=event.id, slots=slots)
     return embed, view
@@ -31,10 +33,18 @@ def build_vote_message(
 
 class VoteView(discord.ui.View):
     def __init__(self, event_id: int, slots: list[TimeSlot]) -> None:
-        super().__init__(timeout=None)
+        super().__init__(timeout=_SEVEN_DAYS)
         self.event_id = event_id
+        self.message: discord.Message | None = None
         self.add_item(SlotSelect(event_id=event_id, slots=slots))
         self.add_item(DeclineButton(event_id=event_id))
+
+    async def on_timeout(self) -> None:
+        if self.message:
+            try:
+                await self.message.delete()
+            except (discord.NotFound, discord.Forbidden):
+                pass
 
 
 class DeclineButton(discord.ui.Button):

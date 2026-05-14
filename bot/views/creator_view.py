@@ -176,10 +176,21 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
             pass
 
 
+_SEVEN_DAYS = 7 * 24 * 3600
+
+
 class CreatorView(discord.ui.View):
     def __init__(self, event_id: int) -> None:
-        super().__init__(timeout=None)
+        super().__init__(timeout=_SEVEN_DAYS)
         self.event_id = event_id
+        self.message: discord.Message | None = None
+
+    async def on_timeout(self) -> None:
+        if self.message:
+            try:
+                await self.message.delete()
+            except (discord.NotFound, discord.Forbidden):
+                pass
 
     @discord.ui.button(label="Terminanfrage abbrechen", style=discord.ButtonStyle.danger)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:

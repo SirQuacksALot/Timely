@@ -89,7 +89,8 @@ class EventModal(discord.ui.Modal, title="Schritt 2/2 — Termin Details"):
         for member in self.participants:
             try:
                 embed, view = build_vote_message(event, db_slots, interaction.user)
-                await member.send(embed=embed, view=view)
+                msg = await member.send(embed=embed, view=view)
+                view.message = msg  # Needed for auto-delete on timeout
             except discord.Forbidden:
                 failed.append(member.display_name)
 
@@ -97,7 +98,8 @@ class EventModal(discord.ui.Modal, title="Schritt 2/2 — Termin Details"):
         try:
             creator_embed = build_creator_initial_embed(event, db_slots, self.participants)
             creator_view = CreatorView(event_id=event.id)
-            await interaction.user.send(embed=creator_embed, view=creator_view)
+            creator_msg = await interaction.user.send(embed=creator_embed, view=creator_view)
+            creator_view.message = creator_msg  # Needed for auto-delete on timeout
         except discord.Forbidden:
             pass
 
