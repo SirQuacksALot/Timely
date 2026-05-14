@@ -61,6 +61,9 @@ class DeclineButton(discord.ui.Button):
             content="Du hast den Termin abgelehnt.", embed=None, view=None
         )
 
+        from bot.views.creator_view import auto_confirm_if_complete
+        await auto_confirm_if_complete(self.event_id, interaction.client)
+
 
 class SlotSelect(discord.ui.Select):
     def __init__(self, event_id: int, slots: list[TimeSlot]) -> None:
@@ -120,3 +123,6 @@ class SlotSelect(discord.ui.Select):
         await interaction.response.edit_message(
             content="Deine Verfügbarkeit wurde gespeichert. Danke!", embed=None, view=None
         )
+
+        from bot.views.creator_view import auto_confirm_if_complete
+        await auto_confirm_if_complete(self.event_id, interaction.client)
