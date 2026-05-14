@@ -38,11 +38,15 @@ def build_creator_initial_embed(
 
     participant_lines = "\n".join(f"⏳ {m.display_name}" for m in participants)
     embed.add_field(name="Eingeladene Teilnehmer", value=participant_lines or "—", inline=False)
-    embed.set_footer(text="Sobald alle abgestimmt haben, kannst du den finalen Slot bestätigen.")
+    embed.set_footer(
+        text="Sobald alle geantwortet haben wird der beste Slot automatisch gewählt. "
+             "Du kannst den Termin auch jederzeit manuell bestätigen."
+    )
     return embed
 
 
 def _vote_counts(slots: list[TimeSlot], votes: list[TimeSlotVote]) -> dict[int, int]:
+    """Count available votes per slot. Creator is NOT included here — added separately."""
     counts = {s.id: 0 for s in slots}
     for v in votes:
         if v.available:
@@ -57,7 +61,8 @@ def build_status_embed(
     votes: list[TimeSlotVote],
     guild: discord.Guild,
 ) -> discord.Embed:
-    total = len(participants)
+    # Creator counts as +1 for all slots automatically
+    total = len(participants) + 1
     pending = sum(1 for p in participants if p.status == ParticipantStatus.PENDING)
     color = discord.Color.green() if event.status == EventStatus.CONFIRMED else discord.Color.blurple()
 
@@ -73,6 +78,10 @@ def build_status_embed(
         embed.add_field(name="Ausstehend", value=str(pending), inline=True)
 
     counts = _vote_counts(slots, votes)
+    # Add creator's automatic +1 to all slots
+    for slot_id in counts:
+        counts[slot_id] += 1
+
     sorted_slots = sorted(slots, key=lambda s: counts[s.id], reverse=True)
     slot_lines = []
     for s in sorted_slots:
@@ -82,12 +91,12 @@ def build_status_embed(
         slot_lines.append(f"{icon} {s.start_time.strftime('%d.%m.%Y %H:%M')} — {n}/{total}{confirmed}")
     embed.add_field(name="Zeitvorschläge", value="\n".join(slot_lines) or "—", inline=False)
 
-    participant_lines = []
+    participant_lines = ["✅ Du (automatisch für alle Slots verfügbar)"]
     for p in participants:
         member = guild.get_member(p.user_id)
         name = member.display_name if member else f"<{p.user_id}>"
         participant_lines.append(f"{_STATUS_ICON[p.status]} {name}")
-    embed.add_field(name="Teilnehmer", value="\n".join(participant_lines) or "—", inline=False)
+    embed.add_field(name="Teilnehmer", value="\n".join(participant_lines), inline=False)
 
     return embed
 
@@ -96,17 +105,75 @@ async def fetch_event_data(
     session, event_id: int
 ) -> tuple[Event, list[TimeSlot], list[Participant], list[TimeSlotVote]]:
     event = await session.get(Event, event_id)
-
     result = await session.execute(select(TimeSlot).where(TimeSlot.event_id == event_id))
     slots = result.scalars().all()
-
     result = await session.execute(select(Participant).where(Participant.event_id == event_id))
     participants = result.scalars().all()
-
     result = await session.execute(select(TimeSlotVote).where(TimeSlotVote.event_id == event_id))
     votes = result.scalars().all()
-
     return event, slots, participants, votes
+
+
+async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> None:
+    """Called after every participant vote. Confirms automatically when all have responded."""
+    from bot.ical import build_ics
+
+    async with SessionLocal() as session:
+        event, slots, participants, votes = await fetch_event_data(session, event_id)
+
+        if event.status != EventStatus.OPEN:
+            return
+
+        pending = [p for p in participants if p.status == ParticipantStatus.PENDING]
+        if pending:
+            return  # Still waiting on responses
+
+        # All responded — pick best slot
+        # Creator counts as +1 for all slots
+        counts: dict[int, int] = {s.id: 1 for s in slots}
+        for v in votes:
+            if v.available:
+                counts[v.time_slot_id] += 1
+
+        best_slot = max(
+            slots,
+            key=lambda s: (counts[s.id], -s.start_time.timestamp()),
+        )
+
+        event.status = EventStatus.CONFIRMED
+        event.confirmed_slot_id = best_slot.id
+        await session.commit()
+
+        accepted_ids = [p.user_id for p in participants if p.status == ParticipantStatus.ACCEPTED]
+        notify_ids = list({*accepted_ids, event.creator_id})
+        event_title = event.title
+        event_description = event.description or ""
+        best_time = best_slot.start_time
+
+    final_time = best_time.strftime("%d.%m.%Y um %H:%M Uhr")
+    total = len(participants) + 1
+    best_count = counts[best_slot.id]
+
+    embed = discord.Embed(
+        title=f"📅 Termin bestätigt: {event_title}",
+        description=f"Der finale Termin steht fest:\n**{final_time}**",
+        color=discord.Color.green(),
+    )
+    if best_count < total:
+        embed.add_field(
+            name="Hinweis",
+            value=f"Kein Slot passte allen — gewählt wurde der Slot mit der höchsten Verfügbarkeit ({best_count}/{total}).",
+            inline=False,
+        )
+    embed.set_footer(text="Die .ics Datei im Anhang kannst du direkt in deinen Kalender importieren.")
+
+    for user_id in notify_ids:
+        try:
+            user = await client.fetch_user(user_id)
+            ics = build_ics(title=event_title, description=event_description, start=best_time)
+            await user.send(embed=embed, file=discord.File(ics, filename="termin.ics"))
+        except discord.Forbidden:
+            pass
 
 
 class CreatorView(discord.ui.View):
@@ -114,7 +181,7 @@ class CreatorView(discord.ui.View):
         super().__init__(timeout=None)
         self.event_id = event_id
 
-    @discord.ui.button(label="Termin bestätigen", style=discord.ButtonStyle.success, emoji="✅")
+    @discord.ui.button(label="Jetzt bestätigen (manuell)", style=discord.ButtonStyle.secondary, emoji="✅")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         async with SessionLocal() as session:
             event, slots, _, _ = await fetch_event_data(session, self.event_id)
@@ -157,17 +224,16 @@ class ConfirmSlotSelect(discord.ui.Select):
         async with SessionLocal() as session:
             event, _, participants, _ = await fetch_event_data(session, self.event_id)
             slot = await session.get(TimeSlot, slot_id)
-
             event.status = EventStatus.CONFIRMED
             event.confirmed_slot_id = slot_id
             await session.commit()
 
-            # Notify accepted participants + the creator
-            accepted_ids = [
-                p.user_id for p in participants if p.status == ParticipantStatus.ACCEPTED
-            ]
-            notify_ids = list({*accepted_ids, event.creator_id})
+            notify_ids = list({
+                *(p.user_id for p in participants if p.status == ParticipantStatus.ACCEPTED),
+                event.creator_id,
+            })
             event_title = event.title
+            event_description = event.description or ""
 
         from bot.ical import build_ics
 
@@ -179,23 +245,15 @@ class ConfirmSlotSelect(discord.ui.Select):
         )
         embed.set_footer(text="Die .ics Datei im Anhang kannst du direkt in deinen Kalender importieren.")
 
-        failed: list[str] = []
         for user_id in notify_ids:
             try:
                 user = await interaction.client.fetch_user(user_id)
-                ics = build_ics(
-                    title=event_title,
-                    description=event.description or "",
-                    start=slot.start_time,
-                )
-                await user.send(
-                    embed=embed,
-                    file=discord.File(ics, filename="termin.ics"),
-                )
+                ics = build_ics(title=event_title, description=event_description, start=slot.start_time)
+                await user.send(embed=embed, file=discord.File(ics, filename="termin.ics"))
             except discord.Forbidden:
-                failed.append(str(user_id))
+                pass
 
-        msg = f"Termin **{event_title}** auf **{final_time}** bestätigt. Alle Teilnehmer wurden informiert."
-        if failed:
-            msg += f"\nFolgende Nutzer konnten nicht per DM erreicht werden: {', '.join(failed)}"
-        await interaction.response.edit_message(content=msg, view=None)
+        await interaction.response.edit_message(
+            content=f"Termin **{event_title}** auf **{final_time}** bestätigt. Alle wurden informiert.",
+            view=None,
+        )
