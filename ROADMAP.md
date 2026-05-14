@@ -36,6 +36,7 @@ timeline
     section Future
         Cancel confirmed      : Organiser can cancel confirmed appointments, participant notification
         DB Backup & Restore   : /timely backup exports JSON.gz, /timely restore reimports with confirmation
+        Google Calendar       : OAuth2 integration — confirmed appointments added automatically to user's calendar
         Auto-translation      : Automatic string translation via external API
 ```
 
@@ -65,4 +66,5 @@ timeline
 | DM auto-delete persistence | ✅ Done | P4 |
 | Cancel confirmed appointments | 🔲 Planned | P3 |
 | DB Backup & Restore | 🔲 Planned | P2 |
+| Google Calendar integration | 🔲 Planned | P3 |
 | Auto-translation | 🔲 Planned | P4 |
