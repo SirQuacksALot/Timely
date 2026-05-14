@@ -29,9 +29,10 @@ class ParticipantPickerView(discord.ui.View):
             )
             return
 
-        from bot.views.event_modal import EventModal
-        await interaction.response.send_modal(
-            EventModal(apt_id=self.apt_id, participants=self.selected_users)
+        from bot.views.slot_picker import SlotPickerView, _picker_content
+        view = SlotPickerView(apt_id=self.apt_id, participants=self.selected_users)
+        await interaction.response.edit_message(
+            content=_picker_content([]), view=view
         )
 
 
