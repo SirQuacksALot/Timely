@@ -21,6 +21,27 @@ _STATUS_ICON = {
 }
 
 
+def build_creator_initial_embed(
+    event: Event,
+    slots: list[TimeSlot],
+    participants: list[discord.Member],
+) -> discord.Embed:
+    embed = discord.Embed(
+        title=f"📅 Termin erstellt: {event.title}",
+        color=discord.Color.blurple(),
+    )
+    if event.description:
+        embed.description = event.description
+
+    slot_lines = "\n".join(f"• {s.start_time.strftime('%d.%m.%Y %H:%M')}" for s in slots)
+    embed.add_field(name="Zeitvorschläge", value=slot_lines or "—", inline=False)
+
+    participant_lines = "\n".join(f"⏳ {m.display_name}" for m in participants)
+    embed.add_field(name="Eingeladene Teilnehmer", value=participant_lines or "—", inline=False)
+    embed.set_footer(text="Sobald alle abgestimmt haben, kannst du den finalen Slot bestätigen.")
+    return embed
+
+
 def _vote_counts(slots: list[TimeSlot], votes: list[TimeSlotVote]) -> dict[int, int]:
     counts = {s.id: 0 for s in slots}
     for v in votes:
@@ -141,9 +162,11 @@ class ConfirmSlotSelect(discord.ui.Select):
             event.confirmed_slot_id = slot_id
             await session.commit()
 
+            # Notify accepted participants + the creator
             accepted_ids = [
                 p.user_id for p in participants if p.status == ParticipantStatus.ACCEPTED
             ]
+            notify_ids = list({*accepted_ids, event.creator_id})
             event_title = event.title
 
         from bot.ical import build_ics
@@ -157,7 +180,7 @@ class ConfirmSlotSelect(discord.ui.Select):
         embed.set_footer(text="Die .ics Datei im Anhang kannst du direkt in deinen Kalender importieren.")
 
         failed: list[str] = []
-        for user_id in accepted_ids:
+        for user_id in notify_ids:
             try:
                 user = await interaction.client.fetch_user(user_id)
                 ics = build_ics(
