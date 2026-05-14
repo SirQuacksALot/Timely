@@ -35,6 +35,7 @@ timeline
 
     section Future
         Cancel confirmed      : Organiser can cancel confirmed appointments, participant notification
+        DB Backup & Restore   : /timely backup exports JSON.gz, /timely restore reimports with confirmation
         Auto-translation      : Automatic string translation via external API
 ```
 
@@ -63,4 +64,5 @@ timeline
 | Localisation (strings.py) | ✅ Done | P3 |
 | DM auto-delete persistence | ✅ Done | P4 |
 | Cancel confirmed appointments | 🔲 Planned | P3 |
+| DB Backup & Restore | 🔲 Planned | P2 |
 | Auto-translation | 🔲 Planned | P4 |
