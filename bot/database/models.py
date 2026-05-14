@@ -27,11 +27,24 @@ class ServerConfig(Base):
     __tablename__ = "server_configs"
 
     guild_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    panel_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    panel_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
-    appointment_types: Mapped[list[AppointmentType]] = relationship(
+    panels: Mapped[list[Panel]] = relationship(
         back_populates="server_config", cascade="all, delete-orphan"
+    )
+
+
+class Panel(Base):
+    __tablename__ = "panels"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("server_configs.guild_id"))
+    name: Mapped[str] = mapped_column(String(80))
+    channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    server_config: Mapped[ServerConfig] = relationship(back_populates="panels")
+    appointment_types: Mapped[list[AppointmentType]] = relationship(
+        back_populates="panel", cascade="all, delete-orphan"
     )
 
 
@@ -39,12 +52,13 @@ class AppointmentType(Base):
     __tablename__ = "appointment_types"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("server_configs.guild_id"))
+    panel_id: Mapped[int] = mapped_column(Integer, ForeignKey("panels.id"))
+    guild_id: Mapped[int] = mapped_column(BigInteger)  # denormalized for easy filtering
     label: Mapped[str] = mapped_column(String(80))
     required_creator_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     restrict_invitees_to_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
-    server_config: Mapped[ServerConfig] = relationship(back_populates="appointment_types")
+    panel: Mapped[Panel] = relationship(back_populates="appointment_types")
     events: Mapped[list[Event]] = relationship(back_populates="appointment_type")
 
 
@@ -58,7 +72,6 @@ class Event(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(String(2000), default="")
     status: Mapped[EventStatus] = mapped_column(Enum(EventStatus), default=EventStatus.OPEN)
-    # use_alter breaks the circular FK cycle between events ↔ time_slots
     confirmed_slot_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("time_slots.id", use_alter=True, name="fk_event_confirmed_slot"),
