@@ -181,22 +181,41 @@ class CreatorView(discord.ui.View):
         super().__init__(timeout=None)
         self.event_id = event_id
 
-    @discord.ui.button(label="Jetzt bestätigen (manuell)", style=discord.ButtonStyle.secondary, emoji="✅")
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+    @discord.ui.button(label="Termin abbrechen", style=discord.ButtonStyle.danger, emoji="❌")
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         async with SessionLocal() as session:
-            event, slots, _, _ = await fetch_event_data(session, self.event_id)
+            event, _, participants, _ = await fetch_event_data(session, self.event_id)
 
         if not event or event.creator_id != interaction.user.id:
             await interaction.response.send_message("Kein Zugriff.", ephemeral=True)
             return
         if event.status != EventStatus.OPEN:
-            await interaction.response.send_message("Dieser Termin ist bereits bestätigt.", ephemeral=True)
+            await interaction.response.send_message("Dieser Termin ist bereits abgeschlossen.", ephemeral=True)
             return
 
-        await interaction.response.send_message(
-            "Wähle den finalen Zeitslot:",
-            view=ConfirmSlotView(event_id=self.event_id, slots=list(slots)),
-            ephemeral=True,
+        async with SessionLocal() as session:
+            event = await session.get(Event, self.event_id)
+            event.status = EventStatus.CANCELLED
+            await session.commit()
+            event_title = event.title
+
+        # Notify all participants about cancellation
+        embed = discord.Embed(
+            title=f"❌ Termin abgesagt: {event_title}",
+            description="Der Terminanfrage wurde vom Ersteller abgesagt.",
+            color=discord.Color.red(),
+        )
+        for p in participants:
+            try:
+                user = await interaction.client.fetch_user(p.user_id)
+                await user.send(embed=embed)
+            except discord.Forbidden:
+                pass
+
+        await interaction.response.edit_message(
+            content=f"Termin **{event_title}** wurde abgesagt. Alle Teilnehmer wurden informiert.",
+            embed=None,
+            view=None,
         )
 
 
