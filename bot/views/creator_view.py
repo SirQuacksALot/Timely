@@ -208,8 +208,11 @@ class _CancelButton(discord.ui.Button):
         if not event or event.creator_id != interaction.user.id:
             await interaction.response.send_message(S.NO_ACCESS, ephemeral=True)
             return
-        if event.status != EventStatus.OPEN:
-            await interaction.response.send_message(S.ALREADY_DONE, ephemeral=True)
+        if event.status == EventStatus.CONFIRMED:
+            await interaction.response.send_message(S.ALREADY_CONFIRMED, ephemeral=True)
+            return
+        if event.status == EventStatus.CANCELLED:
+            await interaction.response.send_message(S.ALREADY_CANCELLED, ephemeral=True)
             return
 
         async with SessionLocal() as session:

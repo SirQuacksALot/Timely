@@ -9,7 +9,8 @@ class S:
     # ── General errors ───────────────────────────────────────────────────────
     NO_PERMISSION_GUILD     = 'You need the "Manage Server" permission.'
     NO_ACCESS               = "No access."
-    ALREADY_DONE            = "This event has already ended."
+    ALREADY_CONFIRMED       = "This appointment request has already been confirmed."
+    ALREADY_CANCELLED       = "This appointment request has already been cancelled."
 
     # ── Admin: Panel ─────────────────────────────────────────────────────────
     PANEL_CREATED           = "Panel **{name}** created in {channel}.\nAdd buttons using `/timely add_type panel:{name} label:...`"
