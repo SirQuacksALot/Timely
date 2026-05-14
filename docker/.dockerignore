@@ -1,0 +1,9 @@
+.env
+.git
+.ai
+.devcontainer
+__pycache__
+*.pyc
+*.db
+.venv
+venv
