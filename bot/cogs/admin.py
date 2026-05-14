@@ -167,6 +167,7 @@ class AdminCog(commands.Cog):
         label="Button-Bezeichnung (z.B. 'Team-Meeting')",
         nur_ersteller_mit_rolle="Nur Nutzer mit dieser Rolle dürfen diesen Button nutzen (optional)",
         nur_diese_rolle_einladen="Eingeladene Teilnehmer müssen diese Rolle haben (optional)",
+        max_anfragen="Max. gleichzeitige offene Anfragen pro Nutzer (Standard: 1)",
     )
     @app_commands.autocomplete(panel=_panel_autocomplete)
     async def add_type(
@@ -176,6 +177,7 @@ class AdminCog(commands.Cog):
         label: str,
         nur_ersteller_mit_rolle: discord.Role | None = None,
         nur_diese_rolle_einladen: discord.Role | None = None,
+        max_anfragen: int = 1,
     ) -> None:
         async with SessionLocal() as session:
             db_panel = await _get_panel(session, interaction.guild_id, panel)
@@ -192,6 +194,7 @@ class AdminCog(commands.Cog):
                 label=label,
                 required_creator_role_id=nur_ersteller_mit_rolle.id if nur_ersteller_mit_rolle else None,
                 restrict_invitees_to_role_id=nur_diese_rolle_einladen.id if nur_diese_rolle_einladen else None,
+                max_concurrent_requests=max(1, max_anfragen),
             )
             session.add(apt)
             await session.commit()
@@ -243,6 +246,7 @@ class AdminCog(commands.Cog):
         new_label="New label (leave empty to keep current)",
         nur_ersteller_mit_rolle="Update creator role restriction (use @everyone to clear)",
         nur_diese_rolle_einladen="Update invitee role restriction (use @everyone to clear)",
+        max_anfragen="Max. simultaneous open requests per user (leave empty to keep current)",
     )
     @app_commands.autocomplete(panel=_panel_autocomplete, label=_type_autocomplete)
     async def edit_type(
@@ -253,6 +257,7 @@ class AdminCog(commands.Cog):
         new_label: str | None = None,
         nur_ersteller_mit_rolle: discord.Role | None = None,
         nur_diese_rolle_einladen: discord.Role | None = None,
+        max_anfragen: int | None = None,
     ) -> None:
         async with SessionLocal() as session:
             db_panel = await _get_panel(session, interaction.guild_id, panel)
@@ -281,6 +286,8 @@ class AdminCog(commands.Cog):
                 apt.required_creator_role_id = None if nur_ersteller_mit_rolle.is_default() else nur_ersteller_mit_rolle.id
             if nur_diese_rolle_einladen is not None:
                 apt.restrict_invitees_to_role_id = None if nur_diese_rolle_einladen.is_default() else nur_diese_rolle_einladen.id
+            if max_anfragen is not None:
+                apt.max_concurrent_requests = max(1, max_anfragen)
 
             await session.commit()
 
@@ -327,11 +334,11 @@ class AdminCog(commands.Cog):
 
         embed = discord.Embed(title=f"Buttons in Panel '{panel}'", color=discord.Color.blurple())
         for apt in types:
-            creator_role = f"<@&{apt.required_creator_role_id}>" if apt.required_creator_role_id else "Alle"
-            invitee_role = f"<@&{apt.restrict_invitees_to_role_id}>" if apt.restrict_invitees_to_role_id else "Alle"
+            creator_role = f"<@&{apt.required_creator_role_id}>" if apt.required_creator_role_id else "Everyone"
+            invitee_role = f"<@&{apt.restrict_invitees_to_role_id}>" if apt.restrict_invitees_to_role_id else "Everyone"
             embed.add_field(
                 name=f"**{apt.label}**",
-                value=f"Button nutzbar für: {creator_role}\nEinladbar: {invitee_role}",
+                value=f"Button usable by: {creator_role}\nInvitees: {invitee_role}\nMax open requests: {apt.max_concurrent_requests}",
                 inline=False,
             )
         await interaction.response.send_message(embed=embed, ephemeral=True)

@@ -1,6 +1,8 @@
 import discord
 
-from bot.database.models import AppointmentType, Panel
+from sqlalchemy import func, select
+
+from bot.database.models import AppointmentType, Event, EventStatus, Panel
 from bot.strings import S
 
 
@@ -40,12 +42,29 @@ class AppointmentTypeButton(discord.ui.Button):
             apt = await session.get(AppointmentType, self.apt_id)
             panel = await session.get(Panel, apt.panel_id) if apt else None
 
+            open_count = 0
+            if apt:
+                open_count = await session.scalar(
+                    select(func.count(Event.id)).where(
+                        Event.appointment_type_id == apt.id,
+                        Event.creator_id == interaction.user.id,
+                        Event.status == EventStatus.OPEN,
+                    )
+                ) or 0
+
         if apt is None:
             await interaction.response.send_message(S.TYPE_GONE, ephemeral=True)
             return
 
         if panel is None or not panel.active:
             await interaction.response.send_message(S.PANEL_DISABLED, ephemeral=True)
+            return
+
+        if open_count >= apt.max_concurrent_requests:
+            await interaction.response.send_message(
+                S.MAX_REQUESTS_REACHED.format(count=open_count, max=apt.max_concurrent_requests),
+                ephemeral=True,
+            )
             return
 
         if apt.required_creator_role_id:

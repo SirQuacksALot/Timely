@@ -58,6 +58,7 @@ class AppointmentType(Base):
     label: Mapped[str] = mapped_column(String(80))
     required_creator_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     restrict_invitees_to_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    max_concurrent_requests: Mapped[int] = mapped_column(Integer, default=1)
 
     panel: Mapped[Panel] = relationship(back_populates="appointment_types")
     events: Mapped[list[Event]] = relationship(back_populates="appointment_type")
