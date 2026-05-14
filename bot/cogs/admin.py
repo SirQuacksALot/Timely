@@ -79,6 +79,31 @@ class AdminCog(commands.Cog):
             parts.append(f"Einladbare Rolle: {invitee_role.mention}")
         await interaction.response.send_message("\n".join(parts), ephemeral=True)
 
+    @timely.command(name="list_types", description="Zeige alle konfigurierten Termintypen")
+    @_require_manage_guild()
+    async def list_types(self, interaction: discord.Interaction) -> None:
+        async with SessionLocal() as session:
+            result = await session.execute(
+                select(AppointmentType).where(AppointmentType.guild_id == interaction.guild_id)
+            )
+            types = result.scalars().all()
+
+        if not types:
+            await interaction.response.send_message("Keine Termintypen konfiguriert.", ephemeral=True)
+            return
+
+        embed = discord.Embed(title="Konfigurierte Termintypen", color=discord.Color.blurple())
+        for apt in types:
+            creator_role = f"<@&{apt.required_creator_role_id}>" if apt.required_creator_role_id else "Alle"
+            invitee_role = f"<@&{apt.restrict_invitees_to_role_id}>" if apt.restrict_invitees_to_role_id else "Alle"
+            embed.add_field(
+                name=f"**{apt.label}** (ID: {apt.id})",
+                value=f"Button nutzbar für: {creator_role}\nEinladbar: {invitee_role}",
+                inline=False,
+            )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
     @timely.command(name="post_panel", description="Poste das Panel mit allen Termintypen")
     @_require_manage_guild()
     async def post_panel(self, interaction: discord.Interaction) -> None:
