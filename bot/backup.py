@@ -4,9 +4,12 @@ from __future__ import annotations
 import gzip
 import io
 import json
+import re
 from datetime import date, datetime
 
 from sqlalchemy import text
+
+_DT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
 from bot.database.db import SessionLocal
 
@@ -68,11 +71,15 @@ async def restore_backup(data: bytes) -> int:
         for table in _TABLE_ORDER:
             rows = tables.get(table, [])
             for row in rows:
-                cols = ", ".join(row.keys())
-                vals = ", ".join(f":{k}" for k in row.keys())
+                parsed = {
+                    k: datetime.fromisoformat(v) if isinstance(v, str) and _DT_RE.match(v) else v
+                    for k, v in row.items()
+                }
+                cols = ", ".join(parsed.keys())
+                vals = ", ".join(f":{k}" for k in parsed.keys())
                 await session.execute(
                     text(f"INSERT INTO {table} ({cols}) VALUES ({vals})"),
-                    row,
+                    parsed,
                 )
                 total += 1
 
