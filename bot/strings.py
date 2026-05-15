@@ -26,13 +26,13 @@ class S:
 
     # ── Admin: Appointment type ───────────────────────────────────────────────
     TYPE_ADDED              = "Button **{label}** added to panel **{panel}**."
-    TYPE_ADDED_CREATOR_ROLE = "Creator role: {role}"
+    TYPE_ADDED_CREATOR_ROLE = "Requester role: {role}"
     TYPE_ADDED_INVITEE_ROLE = "Invitable role: {role}"
     TYPE_NOT_FOUND          = "No button **{label}** found in panel **{panel}**."
     TYPE_REMOVED            = "Button **{label}** removed from panel **{panel}**. Use `/timely refresh_panel panel:{panel}` to refresh the panel."
     NO_TYPES                = "Panel **{panel}** has no buttons yet."
     TYPES_TITLE             = 'Buttons in panel "{panel}"'
-    TYPE_CREATOR_ROLE       = "Button available to"
+    TYPE_CREATOR_ROLE       = "Requester role"
     TYPE_INVITEE_ROLE       = "Invitees"
     ROLE_ALL                = "Everyone"
     PANEL_NOT_FOUND_USE_CREATE = "Panel **{panel}** not found. Create it first using `/timely create_panel`."
@@ -147,7 +147,7 @@ class S:
     TYPE_UPDATED            = "Button **{old}** updated."
     TYPE_LABEL_CHANGED      = "\nNew label: **{new}**"
     TYPE_ROLE_CLEARED       = "\n{field} cleared."
-    TYPE_CREATOR_ROLE_SET   = "\nCreator role set to: {role}"
+    TYPE_CREATOR_ROLE_SET   = "\nRequester role set to: {role}"
     TYPE_INVITEE_ROLE_SET   = "\nInvitee role set to: {role}"
 
     # ── /timely disable / enable ─────────────────────────────────────────────
