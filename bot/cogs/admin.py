@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from sqlalchemy import select
 
+from bot.config import COMMAND_GROUP
 from bot.database.db import SessionLocal
 from bot.database.models import AppointmentType, Event, EventStatus, Panel, ServerConfig
 from bot.strings import S
@@ -64,7 +65,7 @@ class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    timely = app_commands.Group(name="timely", description="Timely Bot Commands")
+    timely = app_commands.Group(name=COMMAND_GROUP, description="Timely Bot Commands")
 
     # ── Panel Management ───────────────────────────────────────────────────────
 
