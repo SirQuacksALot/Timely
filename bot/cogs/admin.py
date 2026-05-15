@@ -435,6 +435,37 @@ class AdminCog(commands.Cog):
 
         await interaction.response.send_message(S.PANEL_ENABLE_SUCCESS.format(name=panel), ephemeral=True)
 
+    # ── Backup / Restore ───────────────────────────────────────────────────────
+
+    @timely.command(name="backup", description="Create a database backup")
+    @_require_manage_guild()
+    async def backup(self, interaction: discord.Interaction) -> None:
+        from datetime import datetime
+
+        from bot.backup import create_backup
+
+        await interaction.response.defer(ephemeral=True)
+        buf = await create_backup()
+        filename = f"timely_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json.gz"
+        await interaction.followup.send(
+            S.BACKUP_SUCCESS,
+            file=discord.File(buf, filename=filename),
+            ephemeral=True,
+        )
+
+    @timely.command(name="restore", description="Restore database from a backup file")
+    @_require_manage_guild()
+    @app_commands.describe(file="Backup file (.json.gz) created by /timely backup")
+    async def restore(self, interaction: discord.Interaction, file: discord.Attachment) -> None:
+        if not file.filename.endswith(".json.gz"):
+            await interaction.response.send_message(S.RESTORE_INVALID_FILE, ephemeral=True)
+            return
+        await interaction.response.send_message(
+            S.RESTORE_CONFIRM,
+            view=RestoreConfirmView(file),
+            ephemeral=True,
+        )
+
     # ── Announce ───────────────────────────────────────────────────────────────
 
     @timely.command(name="announce", description="Post a formatted info message in this channel")
@@ -624,6 +655,28 @@ class AnnounceModal(discord.ui.Modal):
         await interaction.response.send_message(
             S.ANNOUNCE_SENT.format(channel=self.channel.mention), ephemeral=True
         )
+
+
+class RestoreConfirmView(discord.ui.View):
+    def __init__(self, attachment: discord.Attachment) -> None:
+        super().__init__(timeout=60)
+        self.attachment = attachment
+
+    @discord.ui.button(label=S.RESTORE_CONFIRM_BUTTON, style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        from bot.backup import restore_backup
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            data = await self.attachment.read()
+            rows = await restore_backup(data)
+            await interaction.followup.send(S.RESTORE_SUCCESS.format(rows=rows), ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(S.RESTORE_FAILED.format(error=str(e)), ephemeral=True)
+
+    @discord.ui.button(label=S.RESTORE_CANCEL_BUTTON, style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.edit_message(content=S.RESTORE_CANCELLED, view=None)
 
 
 async def setup(bot: commands.Bot) -> None:

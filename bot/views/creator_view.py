@@ -208,24 +208,37 @@ class _CancelButton(discord.ui.Button):
         if not event or event.creator_id != interaction.user.id:
             await interaction.response.send_message(S.NO_ACCESS, ephemeral=True)
             return
-        if event.status == EventStatus.CONFIRMED:
-            await interaction.response.send_message(S.ALREADY_CONFIRMED, ephemeral=True)
-            return
         if event.status == EventStatus.CANCELLED:
             await interaction.response.send_message(S.ALREADY_CANCELLED, ephemeral=True)
             return
 
-        async with SessionLocal() as session:
-            event = await session.get(Event, self.event_id)
-            event.status = EventStatus.CANCELLED
-            await session.commit()
-            event_title = event.title
+        was_confirmed = event.status == EventStatus.CONFIRMED
 
-        embed = discord.Embed(
-            title=S.CANCEL_EMBED_TITLE.format(title=event_title),
-            description=S.CANCEL_EMBED_DESC,
-            color=discord.Color.red(),
-        )
+        async with SessionLocal() as session:
+            ev = await session.get(Event, self.event_id)
+            confirmed_slot = None
+            if was_confirmed and ev.confirmed_slot_id:
+                confirmed_slot = await session.get(TimeSlot, ev.confirmed_slot_id)
+            ev.status = EventStatus.CANCELLED
+            await session.commit()
+            event_title = ev.title
+
+        if was_confirmed and confirmed_slot:
+            final_time = confirmed_slot.start_time.strftime("%d.%m.%Y um %H:%M Uhr")
+            embed = discord.Embed(
+                title=S.CANCEL_CONFIRMED_TITLE.format(title=event_title),
+                description=S.CANCEL_CONFIRMED_DESC.format(time=final_time),
+                color=discord.Color.red(),
+            )
+            self_msg = S.CANCEL_CONFIRMED_SELF.format(title=event_title, time=final_time)
+        else:
+            embed = discord.Embed(
+                title=S.CANCEL_EMBED_TITLE.format(title=event_title),
+                description=S.CANCEL_EMBED_DESC,
+                color=discord.Color.red(),
+            )
+            self_msg = S.CANCEL_CONFIRMED.format(title=event_title)
+
         for p in participants:
             try:
                 user = await interaction.client.fetch_user(p.user_id)
@@ -233,11 +246,7 @@ class _CancelButton(discord.ui.Button):
             except discord.Forbidden:
                 pass
 
-        await interaction.response.edit_message(
-            content=S.CANCEL_CONFIRMED.format(title=event_title),
-            embed=None,
-            view=None,
-        )
+        await interaction.response.edit_message(content=self_msg, embed=None, view=None)
 
 
 class ConfirmSlotView(discord.ui.View):

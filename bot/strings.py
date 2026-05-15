@@ -121,6 +121,21 @@ class S:
     STATUS_PICK_EVENT       = "Select an appointment to view its details:"
     STATUS_PICK_PH          = "Select appointment..."
 
+    # ── Backup / Restore ─────────────────────────────────────────────────────
+    BACKUP_SUCCESS          = "Database backup created. Download the file below."
+    RESTORE_CONFIRM         = "⚠️ **This will overwrite ALL current data.** This cannot be undone. Are you sure?"
+    RESTORE_CONFIRM_BUTTON  = "Yes, restore"
+    RESTORE_CANCEL_BUTTON   = "Cancel"
+    RESTORE_SUCCESS         = "Database restored successfully. {rows} rows imported."
+    RESTORE_FAILED          = "Restore failed: {error}"
+    RESTORE_INVALID_FILE    = "Invalid file. Please upload a `.json.gz` backup file created by `/timely backup`."
+    RESTORE_CANCELLED       = "Restore cancelled."
+
+    # ── Cancel confirmed appointment ─────────────────────────────────────────
+    CANCEL_CONFIRMED_TITLE  = "📅 Appointment cancelled: {title}"
+    CANCEL_CONFIRMED_DESC   = "The confirmed appointment on **{time}** has been cancelled by the organiser."
+    CANCEL_CONFIRMED_SELF   = "Appointment **{title}** (scheduled for **{time}**) has been cancelled. All participants have been informed."
+
     # ── All declined ─────────────────────────────────────────────────────────
     ALL_DECLINED_TITLE      = "❌ Request cancelled: {title}"
     ALL_DECLINED_DESC       = "All invited participants declined. The appointment request has been automatically cancelled."
