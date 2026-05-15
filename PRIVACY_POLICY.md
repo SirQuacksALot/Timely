@@ -44,6 +44,10 @@ Data is used exclusively to provide the scheduling functionality of Timely:
 
 We do not sell, trade, or share your data with any third parties. Data is stored exclusively in a self-hosted database controlled by the server administrator.
 
+### Google Calendar Integration
+
+When a confirmed appointment is sent via DM, the message contains an optional **"Add to Google Calendar"** button. Clicking this button opens a URL on `calendar.google.com` with the appointment title, date, and description pre-filled as URL parameters. By clicking the button, this data is transmitted to Google's servers. Timely does not store any Google account information and has no access to your Google Calendar. Use of this feature is entirely voluntary. Google's own [Privacy Policy](https://policies.google.com/privacy) applies to any interaction with Google services.
+
 ## 6. Data Security & Hosting
 
 Timely stores data in a PostgreSQL database hosted in **Germany, European Union**. All data processing takes place within the EU and is subject to the General Data Protection Regulation (GDPR).
