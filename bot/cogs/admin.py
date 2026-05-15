@@ -158,7 +158,7 @@ class AdminCog(commands.Cog):
     @app_commands.describe(
         panel="Name of the panel",
         label="Button label (e.g. 'Team Meeting')",
-        creator_role="Only users with this role may use this button (optional)",
+        requester_role="Only users with this role may use this button (optional)",
         invitee_role="Invitees must have this role (optional)",
         max_requests="Max simultaneous open requests per user (default: 1)",
     )
@@ -168,7 +168,7 @@ class AdminCog(commands.Cog):
         interaction: discord.Interaction,
         panel: str,
         label: str,
-        creator_role: discord.Role | None = None,
+        requester_role: discord.Role | None = None,
         invitee_role: discord.Role | None = None,
         max_requests: int = 1,
     ) -> None:
@@ -184,7 +184,7 @@ class AdminCog(commands.Cog):
                 panel_id=db_panel.id,
                 guild_id=interaction.guild_id,
                 label=label,
-                required_creator_role_id=creator_role.id if creator_role else None,
+                required_requester_role_id=requester_role.id if requester_role else None,
                 restrict_invitees_to_role_id=invitee_role.id if invitee_role else None,
                 max_concurrent_requests=max(1, max_requests),
             )
@@ -192,8 +192,8 @@ class AdminCog(commands.Cog):
             await session.commit()
 
         parts = [S.TYPE_ADDED.format(label=label, panel=panel)]
-        if creator_role:
-            parts.append(S.TYPE_ADDED_CREATOR_ROLE.format(role=creator_role.mention))
+        if requester_role:
+            parts.append(S.TYPE_ADDED_CREATOR_ROLE.format(role=requester_role.mention))
         if invitee_role:
             parts.append(S.TYPE_ADDED_INVITEE_ROLE.format(role=invitee_role.mention))
         await interaction.response.send_message("\n".join(parts), ephemeral=True)
@@ -234,7 +234,7 @@ class AdminCog(commands.Cog):
         panel="Panel containing the button",
         label="Current button label",
         new_label="New label (leave empty to keep current)",
-        creator_role="Update creator role restriction (use @everyone to clear)",
+        requester_role="Update creator role restriction (use @everyone to clear)",
         invitee_role="Update invitee role restriction (use @everyone to clear)",
         max_requests="Max simultaneous open requests per user (leave empty to keep current)",
     )
@@ -245,7 +245,7 @@ class AdminCog(commands.Cog):
         panel: str,
         label: str,
         new_label: str | None = None,
-        creator_role: discord.Role | None = None,
+        requester_role: discord.Role | None = None,
         invitee_role: discord.Role | None = None,
         max_requests: int | None = None,
     ) -> None:
@@ -273,8 +273,8 @@ class AdminCog(commands.Cog):
 
             if new_label:
                 apt.label = new_label
-            if creator_role is not None:
-                apt.required_creator_role_id = None if creator_role.is_default() else creator_role.id
+            if requester_role is not None:
+                apt.required_requester_role_id = None if requester_role.is_default() else requester_role.id
             if invitee_role is not None:
                 apt.restrict_invitees_to_role_id = None if invitee_role.is_default() else invitee_role.id
             if max_requests is not None:
@@ -285,11 +285,11 @@ class AdminCog(commands.Cog):
         parts = [S.TYPE_UPDATED.format(old=old_label)]
         if label_changed:
             parts.append(S.TYPE_LABEL_CHANGED.format(new=new_label))
-        if creator_role is not None:
-            if creator_role.is_default():
+        if requester_role is not None:
+            if requester_role.is_default():
                 parts.append(S.TYPE_ROLE_CLEARED.format(field="Creator role"))
             else:
-                parts.append(S.TYPE_CREATOR_ROLE_SET.format(role=creator_role.mention))
+                parts.append(S.TYPE_CREATOR_ROLE_SET.format(role=requester_role.mention))
         if invitee_role is not None:
             if invitee_role.is_default():
                 parts.append(S.TYPE_ROLE_CLEARED.format(field="Invitee role"))
@@ -323,7 +323,7 @@ class AdminCog(commands.Cog):
 
         embed = discord.Embed(title=S.TYPES_TITLE.format(panel=panel), color=discord.Color.blurple())
         for apt in types:
-            cr = f"<@&{apt.required_creator_role_id}>" if apt.required_creator_role_id else S.ROLE_ALL
+            cr = f"<@&{apt.required_requester_role_id}>" if apt.required_requester_role_id else S.ROLE_ALL
             ir = f"<@&{apt.restrict_invitees_to_role_id}>" if apt.restrict_invitees_to_role_id else S.ROLE_ALL
             embed.add_field(
                 name=f"**{apt.label}**",

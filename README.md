@@ -109,7 +109,7 @@ Run this command in the channel where the panel should appear:
 |---|---|
 | `panel` | Which panel to add the button to |
 | `label` | Button label shown in Discord |
-| `creator_role` | Only users with this role may use the button *(optional)* |
+| `requester_role` | Only users with this role may use the button *(optional)* |
 | `invitee_role` | Only users with this role can be invited *(optional)* |
 | `max_requests` | Max simultaneous open requests per user *(optional, default: 1)* |
 
