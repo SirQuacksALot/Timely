@@ -23,15 +23,18 @@ I'm a Discord bot for scheduling appointments and coordinating availability acro
 
 - **Multi-panel support** — Admins create multiple panels in different channels, each with its own set of appointment type buttons.
 - **Role-based access** — Each button can restrict who may create a request and who can be invited, based on Discord roles.
+- **Rate limiting** — Configurable maximum number of simultaneous open requests per user per button.
 - **Select-based time picker** — Organisers choose time slots using dropdown menus (date, hour, minute) — no manual typing required.
 - **Doodle-style voting** — Participants receive a DM and vote on which slots work for them. The organiser is automatically counted as available for all slots.
 - **Auto-confirmation** — Once every participant has replied, the bot picks the slot with the most availability and confirms automatically. Ties are broken by earliest date.
-- **iCal export** — All participants (including the organiser) receive a `.ics` file upon confirmation, ready to import into any calendar app.
-- **Cancellation** — Organisers can cancel a pending request at any time; all participants are notified via DM. If all invited participants decline, the request is cancelled automatically.
-- **Rate limiting** — Each button can be configured with a maximum number of simultaneous open requests per user.
+- **Auto-cancellation** — If all participants decline or withdraw, the request is cancelled automatically.
+- **iCal export** — All participants (including the organiser) receive an `appointment.ics` file upon confirmation, ready to import into any calendar app.
+- **Cancellation & withdrawal** — Organisers can cancel open or confirmed appointments at any time. Participants can withdraw their acceptance via `/timely status`.
 - **Reminders** — `/timely remind` sends a follow-up DM to anyone who has not yet replied.
-- **Persistent buttons** — Panel buttons and vote views survive bot restarts.
+- **Persistent buttons** — Panel buttons and vote views survive bot restarts and database restores.
+- **Backup & Restore** — `/timely backup` exports the full database as a compressed file; `/timely restore` reimports it.
 - **Announcements** — `/timely announce` posts a formatted info embed in any channel.
+- **Multi-instance** — `COMMAND_GROUP` env var lets you run separate prod and dev instances on the same server.
 
 ## Requirements
 
@@ -162,6 +165,7 @@ Timely/
 │   ├── config.py                # Environment config
 │   ├── strings.py               # All user-facing text (edit to change language)
 │   ├── ical.py                  # iCal (.ics) file generator
+│   ├── backup.py                # DB backup & restore (JSON.gz, sequence reset)
 │   ├── database/
 │   │   ├── models.py            # SQLAlchemy models
 │   │   └── db.py                # Async DB engine & session
