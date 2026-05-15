@@ -59,6 +59,9 @@ async def restore_backup(data: bytes) -> int:
     total = 0
 
     async with SessionLocal() as session:
+        # Break the circular FK (events.confirmed_slot_id → time_slots.id) before deletion
+        await session.execute(text("UPDATE events SET confirmed_slot_id = NULL"))
+
         for table in reversed(_TABLE_ORDER):
             await session.execute(text(f"DELETE FROM {table}"))
 
