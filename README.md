@@ -35,6 +35,8 @@ I'm a Discord bot for scheduling appointments and coordinating availability acro
 - **Backup & Restore** — `/timely backup` exports the full database as a compressed file; `/timely restore` reimports it.
 - **Announcements** — `/timely announce` posts a formatted info embed in any channel.
 - **Multi-instance** — `COMMAND_GROUP` env var lets you run separate prod and dev instances on the same server.
+- **Calendar integration** — Confirmation DM contains a **📅 Add to Google Calendar** link button (no account linking required) and a **📥 Download .ics** button for Apple Calendar, Outlook and others.
+- **Title prefix** — Each appointment type button can have a configurable prefix (e.g. `[Coaching]`) that is automatically prepended to every event title.
 
 ## Requirements
 
@@ -112,6 +114,7 @@ Run this command in the channel where the panel should appear:
 |---|---|
 | `panel` | Which panel to add the button to |
 | `label` | Button label shown in Discord |
+| `title_prefix` | Prefix prepended to every event title (e.g. `[Coaching]`) *(optional)* |
 | `requester_role` | Only users with this role may use the button *(optional)* |
 | `invitee_role` | Only users with this role can be invited *(optional)* |
 | `max_requests` | Max simultaneous open requests per user *(optional, default: 1)* |
@@ -165,6 +168,7 @@ Timely/
 │   ├── config.py                # Environment config
 │   ├── strings.py               # All user-facing text (edit to change language)
 │   ├── ical.py                  # iCal (.ics) file generator
+│   ├── gcal.py                  # Google Calendar pre-fill URL builder
 │   ├── backup.py                # DB backup & restore (JSON.gz, sequence reset)
 │   ├── database/
 │   │   ├── models.py            # SQLAlchemy models
@@ -178,7 +182,8 @@ Timely/
 │       ├── slot_picker.py       # Step 2: date/time slot selection
 │       ├── event_modal.py       # Step 3: title & description modal
 │       ├── vote_view.py         # Participant DM: slot voting (persistent)
-│       └── creator_view.py      # Organiser DM: status, cancel, auto-confirm (persistent)
+│       ├── creator_view.py      # Organiser DM: status, cancel, auto-confirm (persistent)
+│       └── calendar_view.py     # Confirmation DM: Google Calendar + .ics buttons (persistent)
 ├── alembic/
 │   ├── env.py                   # Async Alembic environment
 │   └── versions/                # Schema migrations

@@ -36,9 +36,15 @@ timeline
         Auto-cancel           : All decline/withdraw → event cancelled automatically
         Cancel confirmed      : Requester can cancel confirmed appointments too
 
+    section Phase 6 · Calendar & UX
+        Google Calendar       : Pre-filled URL button in confirmation DM (no OAuth required)
+        .ics on demand        : Download .ics button in confirmation DM
+        Title prefix          : Configurable prefix per appointment type prepended to event titles
+        Bot status            : Rotating fun status messages every 3 hours
+        Legal                 : Terms of Service + Privacy Policy (GDPR, Germany/EU)
+
     section Future
-        Google Calendar       : OAuth2 flow · token storage · callback server · auto-create events on confirmation
-        Auto-translation      : Automatic string translation via external API
+        Google Calendar OAuth : Full OAuth2 flow — auto-create events without user action
 ```
 
 ## Status
@@ -52,11 +58,13 @@ timeline
 | Persistent views on restart | ✅ Done | P1 |
 | Role-based access control | ✅ Done | P1 |
 | Rate limiting per button | ✅ Done | P2 |
+| Configurable title prefix | ✅ Done | P2 |
 | 3-step event creation flow | ✅ Done | P2 |
 | Select-based datetime picker | ✅ Done | P2 |
 | Doodle-style voting | ✅ Done | P2 |
 | Auto-confirmation & best-slot | ✅ Done | P2 |
-| iCal export (appointment.ics) | ✅ Done | P2 |
+| Google Calendar URL button | ✅ Done | P2 |
+| .ics download button | ✅ Done | P2 |
 | Multi-panel support | ✅ Done | P2 |
 | edit_type / disable / enable | ✅ Done | P2 |
 | /timely announce | ✅ Done | P2 |
@@ -69,5 +77,6 @@ timeline
 | Reminders | ✅ Done | P3 |
 | Localisation (strings.py) | ✅ Done | P3 |
 | DM auto-delete persistence | ✅ Done | P4 |
-| Google Calendar integration | 🔲 Planned | P3 |
-| Auto-translation | 🚫 Dropped | — |
+| Rotating bot status | ✅ Done | P3 |
+| Terms of Service & Privacy Policy | ✅ Done | P3 |
+| Google Calendar OAuth2 (full) | 🔲 Planned | P4 |
