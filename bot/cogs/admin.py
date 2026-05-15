@@ -767,6 +767,11 @@ class RestoreConfirmView(discord.ui.View):
         try:
             data = await self.attachment.read()
             rows = await restore_backup(data)
+
+            # Re-register persistent views so panel buttons work immediately
+            from bot.main import restore_views
+            await restore_views(interaction.client)
+
             await interaction.followup.send(S.RESTORE_SUCCESS.format(rows=rows), ephemeral=True)
         except Exception as e:
             await interaction.followup.send(S.RESTORE_FAILED.format(error=str(e)), ephemeral=True)
