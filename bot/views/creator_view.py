@@ -204,11 +204,15 @@ async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> Non
         )
     embed.set_footer(text=S.CONFIRM_FOOTER)
 
+    from bot.gcal import build_gcal_url
+    from bot.views.calendar_view import build_confirmation_view
+
+    gcal_url = build_gcal_url(title=event_title, description=event_description, start=best_time)
+
     for user_id in notify_ids:
         try:
             user = await client.fetch_user(user_id)
-            ics = build_ics(title=event_title, description=event_description, start=best_time)
-            await user.send(embed=embed, file=discord.File(ics, filename="appointment.ics"))
+            await user.send(embed=embed, view=build_confirmation_view(gcal_url, event_id))
         except discord.Forbidden:
             pass
 
@@ -322,11 +326,15 @@ class ConfirmSlotSelect(discord.ui.Select):
         )
         embed.set_footer(text=S.CONFIRM_FOOTER)
 
+        from bot.gcal import build_gcal_url
+        from bot.views.calendar_view import build_confirmation_view
+
+        gcal_url = build_gcal_url(title=event_title, description=event_description, start=slot.start_time)
+
         for user_id in notify_ids:
             try:
                 user = await interaction.client.fetch_user(user_id)
-                ics = build_ics(title=event_title, description=event_description, start=slot.start_time)
-                await user.send(embed=embed, file=discord.File(ics, filename="appointment.ics"))
+                await user.send(embed=embed, view=build_confirmation_view(gcal_url, event.id))
             except discord.Forbidden:
                 pass
 

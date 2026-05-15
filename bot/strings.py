@@ -173,6 +173,11 @@ class S:
     ANNOUNCE_FIELD_BODY_PH = "Describe what users can do in this channel..."
     ANNOUNCE_SENT = "Announcement posted in {channel}."
 
+    # ── Calendar buttons ─────────────────────────────────────────────────────
+    GCAL_BUTTON = "Add to Google Calendar"
+    ICS_BUTTON = "Download .ics"
+    ICS_SENT = "Here is your calendar file:"
+
     # ── /timely remind ────────────────────────────────────────────────────────
     REMIND_ALL_ANSWERED = "All participants have already replied."
     REMIND_SENT = "Reminder sent to **{count}** participants."

@@ -35,6 +35,7 @@ async def restore_views(bot: "TimelyBot") -> None:
 
     from bot.database.db import SessionLocal
     from bot.database.models import AppointmentType, Event, EventStatus, Panel, TimeSlot
+    from bot.views.calendar_view import CalendarView, build_confirmation_view
     from bot.views.creator_view import CreatorView
     from bot.views.panel_view import PanelView
     from bot.views.vote_view import VoteView
@@ -52,10 +53,11 @@ async def restore_views(bot: "TimelyBot") -> None:
                 bot.add_view(PanelView(list(types)))
                 panel_count += 1
 
+        # Open events — vote + creator views
         result = await session.execute(select(Event).where(Event.status == EventStatus.OPEN))
-        events = result.scalars().all()
-        event_count = len(events)
-        for event in events:
+        open_events = result.scalars().all()
+        event_count = len(open_events)
+        for event in open_events:
             result = await session.execute(
                 select(TimeSlot).where(TimeSlot.event_id == event.id)
             )
@@ -64,7 +66,27 @@ async def restore_views(bot: "TimelyBot") -> None:
                 bot.add_view(VoteView(event_id=event.id, slots=list(slots)))
             bot.add_view(CreatorView(event_id=event.id))
 
-    log.info("Restored %d panel view(s) and %d event view(s).", panel_count, event_count)
+        # Confirmed events — calendar views (.ics + Google Calendar buttons)
+        from bot.gcal import build_gcal_url
+        result = await session.execute(
+            select(Event).where(
+                Event.status == EventStatus.CONFIRMED,
+                Event.confirmed_slot_id.isnot(None),
+            )
+        )
+        confirmed_events = result.scalars().all()
+        for event in confirmed_events:
+            slot = await session.get(TimeSlot, event.confirmed_slot_id)
+            if slot:
+                gcal_url = build_gcal_url(
+                    title=event.title,
+                    description=event.description or "",
+                    start=slot.start_time,
+                )
+                bot.add_view(build_confirmation_view(gcal_url, event.id))
+
+    log.info("Restored %d panel view(s), %d open event view(s), %d confirmed calendar view(s).",
+             panel_count, event_count, len(confirmed_events))
 
 
 class TimelyBot(commands.Bot):
