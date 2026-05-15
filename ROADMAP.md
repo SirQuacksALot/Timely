@@ -70,4 +70,4 @@ timeline
 | Localisation (strings.py) | ✅ Done | P3 |
 | DM auto-delete persistence | ✅ Done | P4 |
 | Google Calendar integration | 🔲 Planned | P3 |
-| Auto-translation | 🔲 Planned | P4 |
+| Auto-translation | 🚫 Dropped | — |
