@@ -124,7 +124,9 @@ class S:
     # ── Participant withdrawal ────────────────────────────────────────────────
     WITHDRAW_BUTTON         = "Withdraw acceptance"
     WITHDRAW_NOT_ACCEPTED   = "You have not accepted this appointment, so there is nothing to withdraw."
-    WITHDRAW_NOT_OPEN       = "This appointment is no longer open."
+    WITHDRAW_NOT_OPEN       = "This appointment has already been cancelled."
+    ALL_WITHDRAWN_TITLE     = "📅 Appointment cancelled: {title}"
+    ALL_WITHDRAWN_DESC      = "All participants have withdrawn. The appointment has been automatically cancelled."
     WITHDRAW_CONFIRMED      = "Your acceptance has been withdrawn."
 
     # ── Backup / Restore ─────────────────────────────────────────────────────

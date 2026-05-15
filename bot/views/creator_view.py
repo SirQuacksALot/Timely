@@ -111,6 +111,34 @@ async def fetch_event_data(
     return event, slots, participants, votes
 
 
+async def auto_cancel_if_all_withdrawn(event_id: int, client: discord.Client) -> None:
+    """Cancel a CONFIRMED event if all participants have withdrawn."""
+    async with SessionLocal() as session:
+        event, _, participants, _ = await fetch_event_data(session, event_id)
+
+        if event.status == EventStatus.CANCELLED or not participants:
+            return
+
+        if not all(p.status == ParticipantStatus.DECLINED for p in participants):
+            return
+
+        event.status = EventStatus.CANCELLED
+        await session.commit()
+        event_title = event.title
+        creator_id = event.creator_id
+
+    try:
+        creator = await client.fetch_user(creator_id)
+        embed = discord.Embed(
+            title=S.ALL_WITHDRAWN_TITLE.format(title=event_title),
+            description=S.ALL_WITHDRAWN_DESC,
+            color=discord.Color.red(),
+        )
+        await creator.send(embed=embed)
+    except discord.Forbidden:
+        pass
+
+
 async def auto_confirm_if_complete(event_id: int, client: discord.Client) -> None:
     from bot.ical import build_ics
 

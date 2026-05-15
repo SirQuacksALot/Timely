@@ -540,7 +540,7 @@ class AdminCog(commands.Cog):
 
             if is_creator:
                 view = CreatorView(event_id=event.id)
-            elif event.status == EventStatus.OPEN and participant_status == ParticipantStatus.ACCEPTED:
+            elif event.status in (EventStatus.OPEN, EventStatus.CONFIRMED) and participant_status == ParticipantStatus.ACCEPTED:
                 view = ParticipantView(event_id=event.id)
             else:
                 view = None
@@ -650,10 +650,11 @@ class ParticipantView(discord.ui.View):
 
             from bot.database.models import Event, EventStatus
             event = await session.get(Event, self.event_id)
-            if event.status != EventStatus.OPEN:
+            if event.status == EventStatus.CANCELLED:
                 await interaction.response.send_message(S.WITHDRAW_NOT_OPEN, ephemeral=True)
                 return
 
+            was_confirmed = event.status == EventStatus.CONFIRMED
             p.status = ParticipantStatus.DECLINED
             await session.execute(
                 delete(TimeSlotVote).where(
@@ -664,7 +665,12 @@ class ParticipantView(discord.ui.View):
             await session.commit()
 
         await interaction.response.edit_message(content=S.WITHDRAW_CONFIRMED, embed=None, view=None)
-        await auto_confirm_if_complete(self.event_id, interaction.client)
+
+        if was_confirmed:
+            from bot.views.creator_view import auto_cancel_if_all_withdrawn
+            await auto_cancel_if_all_withdrawn(self.event_id, interaction.client)
+        else:
+            await auto_confirm_if_complete(self.event_id, interaction.client)
 
 
 _STATUS_EMOJI = {
@@ -711,7 +717,7 @@ class EventPickerSelect(discord.ui.Select):
 
         if is_creator:
             view = CreatorView(event_id=event_id)
-        elif event.status == EventStatus.OPEN and participant_status == ParticipantStatus.ACCEPTED:
+        elif event.status in (EventStatus.OPEN, EventStatus.CONFIRMED) and participant_status == ParticipantStatus.ACCEPTED:
             view = ParticipantView(event_id=event_id)
         else:
             view = None
