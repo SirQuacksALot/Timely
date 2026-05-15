@@ -121,6 +121,12 @@ class S:
     STATUS_PICK_EVENT       = "Select an appointment to view its details:"
     STATUS_PICK_PH          = "Select appointment..."
 
+    # ── Participant withdrawal ────────────────────────────────────────────────
+    WITHDRAW_BUTTON         = "Withdraw acceptance"
+    WITHDRAW_NOT_ACCEPTED   = "You have not accepted this appointment, so there is nothing to withdraw."
+    WITHDRAW_NOT_OPEN       = "This appointment is no longer open."
+    WITHDRAW_CONFIRMED      = "Your acceptance has been withdrawn."
+
     # ── Backup / Restore ─────────────────────────────────────────────────────
     BACKUP_SUCCESS          = "Database backup created. Download the file below."
     RESTORE_CONFIRM         = "⚠️ **This will overwrite ALL current data.** This cannot be undone. Are you sure?"

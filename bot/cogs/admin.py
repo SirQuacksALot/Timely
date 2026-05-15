@@ -529,9 +529,22 @@ class AdminCog(commands.Cog):
         if len(all_entries) == 1:
             event, is_creator = all_entries[0]
             async with SessionLocal() as session:
+                from bot.database.models import Participant, ParticipantStatus
                 event, slots, participants, votes = await fetch_event_data(session, event.id)
+                participant_status = None
+                if not is_creator:
+                    p = await session.get(Participant, (event.id, uid))
+                    participant_status = p.status if p else None
+
             embed = build_status_embed(event, list(slots), list(participants), list(votes), interaction.guild)
-            view = CreatorView(event_id=event.id) if is_creator else None
+
+            if is_creator:
+                view = CreatorView(event_id=event.id)
+            elif event.status == EventStatus.OPEN and participant_status == ParticipantStatus.ACCEPTED:
+                view = ParticipantView(event_id=event.id)
+            else:
+                view = None
+
             await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         else:
             view = EventPickerView(all_entries)
@@ -612,6 +625,48 @@ class RemindPickerSelect(discord.ui.Select):
         await _send_reminders(interaction, int(self.values[0]))
 
 
+class ParticipantView(discord.ui.View):
+    """Shown to invited participants — allows withdrawing acceptance."""
+
+    def __init__(self, event_id: int) -> None:
+        super().__init__(timeout=300)
+        self.event_id = event_id
+
+    @discord.ui.button(label=S.WITHDRAW_BUTTON, style=discord.ButtonStyle.danger)
+    async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        from sqlalchemy import delete
+
+        from bot.database.models import Participant, ParticipantStatus, TimeSlotVote
+        from bot.views.creator_view import auto_confirm_if_complete
+
+        async with SessionLocal() as session:
+            p = await session.get(Participant, (self.event_id, interaction.user.id))
+            if not p:
+                await interaction.response.send_message(S.WITHDRAW_NOT_ACCEPTED, ephemeral=True)
+                return
+            if p.status != ParticipantStatus.ACCEPTED:
+                await interaction.response.send_message(S.WITHDRAW_NOT_ACCEPTED, ephemeral=True)
+                return
+
+            from bot.database.models import Event, EventStatus
+            event = await session.get(Event, self.event_id)
+            if event.status != EventStatus.OPEN:
+                await interaction.response.send_message(S.WITHDRAW_NOT_OPEN, ephemeral=True)
+                return
+
+            p.status = ParticipantStatus.DECLINED
+            await session.execute(
+                delete(TimeSlotVote).where(
+                    TimeSlotVote.event_id == self.event_id,
+                    TimeSlotVote.participant_user_id == interaction.user.id,
+                )
+            )
+            await session.commit()
+
+        await interaction.response.edit_message(content=S.WITHDRAW_CONFIRMED, embed=None, view=None)
+        await auto_confirm_if_complete(self.event_id, interaction.client)
+
+
 _STATUS_EMOJI = {
     EventStatus.OPEN: "🔄",
     EventStatus.CONFIRMED: "✅",
@@ -639,6 +694,7 @@ class EventPickerSelect(discord.ui.Select):
         super().__init__(placeholder=S.STATUS_PICK_PH, options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
+        from bot.database.models import Participant, ParticipantStatus
         from bot.views.creator_view import CreatorView, build_status_embed, fetch_event_data
 
         event_id = int(self.values[0])
@@ -646,9 +702,20 @@ class EventPickerSelect(discord.ui.Select):
 
         async with SessionLocal() as session:
             event, slots, participants, votes = await fetch_event_data(session, event_id)
+            participant_status = None
+            if not is_creator:
+                p = await session.get(Participant, (event_id, interaction.user.id))
+                participant_status = p.status if p else None
 
         embed = build_status_embed(event, list(slots), list(participants), list(votes), interaction.guild)
-        view = CreatorView(event_id=event_id) if is_creator else None
+
+        if is_creator:
+            view = CreatorView(event_id=event_id)
+        elif event.status == EventStatus.OPEN and participant_status == ParticipantStatus.ACCEPTED:
+            view = ParticipantView(event_id=event_id)
+        else:
+            view = None
+
         await interaction.response.edit_message(content=None, embed=embed, view=view)
 
 
