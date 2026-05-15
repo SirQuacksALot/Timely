@@ -31,6 +31,8 @@ class EventModal(discord.ui.Modal):
         self.slots = slots
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+
         from bot.views.creator_view import CreatorView, build_creator_initial_embed
         from bot.views.vote_view import build_vote_message
 
@@ -97,4 +99,4 @@ class EventModal(discord.ui.Modal):
         reply = S.EVENT_CREATED.format(title=self.event_title.value, count=len(self.participants))
         if failed:
             reply += S.EVENT_CREATED_DM_FAILED.format(names=", ".join(failed))
-        await interaction.response.send_message(reply, ephemeral=True)
+        await interaction.followup.send(reply, ephemeral=True)
