@@ -75,6 +75,8 @@ class AppointmentTypeButton(discord.ui.Button):
         eligible_members: list[discord.Member] | None = None
         if apt.restrict_invitees_to_role_id:
             role_id = apt.restrict_invitees_to_role_id
+            if not interaction.guild.chunked:
+                await interaction.guild.chunk()
             eligible_members = [
                 m for m in interaction.guild.members
                 if any(r.id == role_id for r in m.roles)
