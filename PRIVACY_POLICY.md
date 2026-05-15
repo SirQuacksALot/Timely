@@ -44,9 +44,11 @@ Data is used exclusively to provide the scheduling functionality of Timely:
 
 We do not sell, trade, or share your data with any third parties. Data is stored exclusively in a self-hosted database controlled by the server administrator.
 
-## 6. Data Security
+## 6. Data Security & Hosting
 
-Timely stores data in a PostgreSQL database hosted by the server administrator. Security practices depend on the infrastructure managed by the administrator. We recommend using strong passwords, encrypted connections, and regular backups.
+Timely stores data in a PostgreSQL database hosted in **Germany, European Union**. All data processing takes place within the EU and is subject to the General Data Protection Regulation (GDPR).
+
+Security practices include strong access controls, encrypted connections, and regular backups. We recommend that any self-hosted instances follow the same standards.
 
 ## 7. Your Rights
 
