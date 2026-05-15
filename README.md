@@ -27,7 +27,8 @@ I'm a Discord bot for scheduling appointments and coordinating availability acro
 - **Doodle-style voting** — Participants receive a DM and vote on which slots work for them. The organiser is automatically counted as available for all slots.
 - **Auto-confirmation** — Once every participant has replied, the bot picks the slot with the most availability and confirms automatically. Ties are broken by earliest date.
 - **iCal export** — All participants (including the organiser) receive a `.ics` file upon confirmation, ready to import into any calendar app.
-- **Cancellation** — Organisers can cancel a pending request at any time; all participants are notified via DM.
+- **Cancellation** — Organisers can cancel a pending request at any time; all participants are notified via DM. If all invited participants decline, the request is cancelled automatically.
+- **Rate limiting** — Each button can be configured with a maximum number of simultaneous open requests per user.
 - **Reminders** — `/timely remind` sends a follow-up DM to anyone who has not yet replied.
 - **Persistent buttons** — Panel buttons and vote views survive bot restarts.
 - **Announcements** — `/timely announce` posts a formatted info embed in any channel.
@@ -101,15 +102,16 @@ Run this command in the channel where the panel should appear:
 
 ```
 /timely add_type panel:Team label:1-on-1
-/timely add_type panel:Team label:Team Meeting nur_diese_rolle_einladen:@TeamMember
+/timely add_type panel:Team label:Team Meeting invitee_role:@TeamMember max_requests:2
 ```
 
 | Parameter | Description |
 |---|---|
 | `panel` | Which panel to add the button to |
 | `label` | Button label shown in Discord |
-| `nur_ersteller_mit_rolle` | Only users with this role may use the button *(optional)* |
-| `nur_diese_rolle_einladen` | Only users with this role can be invited *(optional)* |
+| `creator_role` | Only users with this role may use the button *(optional)* |
+| `invitee_role` | Only users with this role can be invited *(optional)* |
+| `max_requests` | Max simultaneous open requests per user *(optional, default: 1)* |
 
 ### 3. Post the panel
 
@@ -144,7 +146,7 @@ Run this command in the channel where the panel should appear:
 
 | Command | Description |
 |---|---|
-| `/timely status` | View the status of your open appointment requests |
+| `/timely status` | View your appointment requests — filter by `All`, `Open`, `Confirmed` or `Cancelled` |
 | `/timely remind` | Re-send a reminder DM to participants who have not yet replied |
 
 ## Localisation
@@ -156,25 +158,30 @@ All user-facing text is stored in [`bot/strings.py`](bot/strings.py) in the `S` 
 ```
 Timely/
 ├── bot/
-│   ├── main.py                  # Entry point
+│   ├── main.py                  # Entry point, restores persistent views on startup
 │   ├── config.py                # Environment config
-│   ├── strings.py               # All user-facing text
+│   ├── strings.py               # All user-facing text (edit to change language)
 │   ├── ical.py                  # iCal (.ics) file generator
 │   ├── database/
 │   │   ├── models.py            # SQLAlchemy models
 │   │   └── db.py                # Async DB engine & session
 │   ├── cogs/
-│   │   └── admin.py             # All slash commands
+│   │   ├── admin.py             # All slash commands
+│   │   └── voting.py            # Background task: DM cleanup after 7 days
 │   └── views/
 │       ├── panel_view.py        # Panel embed & appointment type buttons
 │       ├── participant_picker.py # Step 1: participant selection
 │       ├── slot_picker.py       # Step 2: date/time slot selection
 │       ├── event_modal.py       # Step 3: title & description modal
-│       ├── vote_view.py         # Participant DM: slot voting
-│       └── creator_view.py      # Organiser DM: status, cancel, auto-confirm
+│       ├── vote_view.py         # Participant DM: slot voting (persistent)
+│       └── creator_view.py      # Organiser DM: status, cancel, auto-confirm (persistent)
+├── alembic/
+│   ├── env.py                   # Async Alembic environment
+│   └── versions/                # Schema migrations
 ├── docker/
 │   ├── Dockerfile
-│   ├── docker-compose.yml
+│   ├── docker-compose.yml       # PostgreSQL + bot
+│   ├── entrypoint.sh            # Runs migrations then starts bot
 │   └── .dockerignore
 ├── .devcontainer/
 │   └── devcontainer.json
