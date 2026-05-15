@@ -37,7 +37,7 @@ timeline
         Cancel confirmed      : Requester can cancel confirmed appointments too
 
     section Future
-        Google Calendar       : OAuth2 integration — confirmed appointments added to user's calendar
+        Google Calendar       : OAuth2 flow · token storage · callback server · auto-create events on confirmation
         Auto-translation      : Automatic string translation via external API
 ```
 
