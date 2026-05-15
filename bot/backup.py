@@ -99,6 +99,16 @@ async def restore_backup(data: bytes) -> int:
                 {"s": slot_id, "e": event_id},
             )
 
+        # Reset PostgreSQL sequences to avoid duplicate key errors on next insert
+        for table, col in [("panels", "id"), ("appointment_types", "id"),
+                            ("events", "id"), ("time_slots", "id")]:
+            result = await session.execute(text(f"SELECT MAX({col}) FROM {table}"))
+            max_id = result.scalar()
+            if max_id is not None:
+                await session.execute(
+                    text(f"SELECT setval(pg_get_serial_sequence('{table}', '{col}'), {max_id})")
+                )
+
         await session.commit()
 
     return total
