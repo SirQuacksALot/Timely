@@ -1,8 +1,9 @@
 import asyncio
 import logging
+import random
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from bot.config import DISCORD_TOKEN
 from bot.database.db import init_db
@@ -14,6 +15,17 @@ COGS = [
     "bot.cogs.admin",
     "bot.cogs.events",
     "bot.cogs.voting",
+]
+
+_STATUSES: list[discord.Activity] = [
+    discord.Activity(type=discord.ActivityType.watching, name="your calendars 📅"),
+    discord.Activity(type=discord.ActivityType.playing, name="calendar tetris 📆"),
+    discord.Activity(type=discord.ActivityType.listening, name="alarm clocks ⏰"),
+    discord.Activity(type=discord.ActivityType.watching, name="free time slots disappear 😅"),
+    discord.Activity(type=discord.ActivityType.competing, name="scheduling championships 🏆"),
+    discord.Activity(type=discord.ActivityType.listening, name="meeting requests 📬"),
+    discord.Activity(type=discord.ActivityType.watching, name="everyone's availability 👀"),
+    discord.Activity(type=discord.ActivityType.playing, name="find-a-time bingo 🎯"),
 ]
 
 
@@ -60,6 +72,13 @@ class TimelyBot(commands.Bot):
         intents = discord.Intents.default()
         intents.members = True
         super().__init__(command_prefix="!", intents=intents)
+        self._status_queue: list[discord.Activity] = []
+
+    def _next_status(self) -> discord.Activity:
+        if not self._status_queue:
+            self._status_queue = _STATUSES.copy()
+            random.shuffle(self._status_queue)
+        return self._status_queue.pop()
 
     async def setup_hook(self) -> None:
         await init_db()
@@ -67,16 +86,19 @@ class TimelyBot(commands.Bot):
         for cog in COGS:
             await self.load_extension(cog)
         await self.tree.sync()
+        self.rotate_status.start()
         log.info("Slash commands synced.")
 
     async def on_ready(self) -> None:
-        await self.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.watching,
-                name="your calendars 📅",
-            )
-        )
         log.info("Timely is online as %s (ID: %s)", self.user, self.user.id)
+
+    @tasks.loop(hours=3)
+    async def rotate_status(self) -> None:
+        await self.change_presence(activity=self._next_status())
+
+    @rotate_status.before_loop
+    async def before_rotate(self) -> None:
+        await self.wait_until_ready()
 
 
 async def main() -> None:
