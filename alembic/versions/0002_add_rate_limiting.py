@@ -16,9 +16,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "appointment_types",
-        sa.Column("max_concurrent_requests", sa.Integer(), nullable=False, server_default="1"),
+    op.execute(
+        "ALTER TABLE appointment_types ADD COLUMN IF NOT EXISTS max_concurrent_requests INTEGER NOT NULL DEFAULT 1"
     )
 
 
