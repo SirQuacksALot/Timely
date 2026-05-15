@@ -70,6 +70,12 @@ class TimelyBot(commands.Bot):
         log.info("Slash commands synced.")
 
     async def on_ready(self) -> None:
+        await self.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.watching,
+                name="your calendars 📅",
+            )
+        )
         log.info("Timely is online as %s (ID: %s)", self.user, self.user.id)
 
 
