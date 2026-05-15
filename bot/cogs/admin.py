@@ -185,7 +185,7 @@ class AdminCog(commands.Cog):
                 panel_id=db_panel.id,
                 guild_id=interaction.guild_id,
                 label=label,
-                required_requester_role_id=requester_role.id if requester_role else None,
+                required_creator_role_id=requester_role.id if requester_role else None,
                 restrict_invitees_to_role_id=invitee_role.id if invitee_role else None,
                 max_concurrent_requests=max(1, max_requests),
             )
@@ -275,7 +275,7 @@ class AdminCog(commands.Cog):
             if new_label:
                 apt.label = new_label
             if requester_role is not None:
-                apt.required_requester_role_id = None if requester_role.is_default() else requester_role.id
+                apt.required_creator_role_id = None if requester_role.is_default() else requester_role.id
             if invitee_role is not None:
                 apt.restrict_invitees_to_role_id = None if invitee_role.is_default() else invitee_role.id
             if max_requests is not None:
@@ -324,7 +324,7 @@ class AdminCog(commands.Cog):
 
         embed = discord.Embed(title=S.TYPES_TITLE.format(panel=panel), color=discord.Color.blurple())
         for apt in types:
-            cr = f"<@&{apt.required_requester_role_id}>" if apt.required_requester_role_id else S.ROLE_ALL
+            cr = f"<@&{apt.required_creator_role_id}>" if apt.required_creator_role_id else S.ROLE_ALL
             ir = f"<@&{apt.restrict_invitees_to_role_id}>" if apt.restrict_invitees_to_role_id else S.ROLE_ALL
             embed.add_field(
                 name=f"**{apt.label}**",
