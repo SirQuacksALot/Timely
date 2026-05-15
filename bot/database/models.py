@@ -56,6 +56,7 @@ class AppointmentType(Base):
     panel_id: Mapped[int] = mapped_column(Integer, ForeignKey("panels.id"))
     guild_id: Mapped[int] = mapped_column(BigInteger)  # denormalized for easy filtering
     label: Mapped[str] = mapped_column(String(80))
+    title_prefix: Mapped[str | None] = mapped_column(String(40), nullable=True)
     required_creator_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     restrict_invitees_to_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     max_concurrent_requests: Mapped[int] = mapped_column(Integer, default=1)

@@ -159,6 +159,7 @@ class AdminCog(commands.Cog):
     @app_commands.describe(
         panel="Name of the panel",
         label="Button label (e.g. 'Team Meeting')",
+        title_prefix="Prefix prepended to every event title (e.g. '[Coaching]')",
         requester_role="Only users with this role may use this button (optional)",
         invitee_role="Invitees must have this role (optional)",
         max_requests="Max simultaneous open requests per user (default: 1)",
@@ -169,6 +170,7 @@ class AdminCog(commands.Cog):
         interaction: discord.Interaction,
         panel: str,
         label: str,
+        title_prefix: str | None = None,
         requester_role: discord.Role | None = None,
         invitee_role: discord.Role | None = None,
         max_requests: int = 1,
@@ -185,6 +187,7 @@ class AdminCog(commands.Cog):
                 panel_id=db_panel.id,
                 guild_id=interaction.guild_id,
                 label=label,
+                title_prefix=title_prefix or None,
                 required_creator_role_id=requester_role.id if requester_role else None,
                 restrict_invitees_to_role_id=invitee_role.id if invitee_role else None,
                 max_concurrent_requests=max(1, max_requests),
@@ -235,6 +238,7 @@ class AdminCog(commands.Cog):
         panel="Panel containing the button",
         label="Current button label",
         new_label="New label (leave empty to keep current)",
+        title_prefix="New title prefix (use a space ' ' to clear)",
         requester_role="Update creator role restriction (use @everyone to clear)",
         invitee_role="Update invitee role restriction (use @everyone to clear)",
         max_requests="Max simultaneous open requests per user (leave empty to keep current)",
@@ -246,6 +250,7 @@ class AdminCog(commands.Cog):
         panel: str,
         label: str,
         new_label: str | None = None,
+        title_prefix: str | None = None,
         requester_role: discord.Role | None = None,
         invitee_role: discord.Role | None = None,
         max_requests: int | None = None,
@@ -280,6 +285,8 @@ class AdminCog(commands.Cog):
                 apt.restrict_invitees_to_role_id = None if invitee_role.is_default() else invitee_role.id
             if max_requests is not None:
                 apt.max_concurrent_requests = max(1, max_requests)
+            if title_prefix is not None:
+                apt.title_prefix = None if title_prefix.strip() == "" else title_prefix.strip()
 
             await session.commit()
 
@@ -328,7 +335,7 @@ class AdminCog(commands.Cog):
             ir = f"<@&{apt.restrict_invitees_to_role_id}>" if apt.restrict_invitees_to_role_id else S.ROLE_ALL
             embed.add_field(
                 name=f"**{apt.label}**",
-                value=f"{S.TYPE_CREATOR_ROLE}: {cr}\n{S.TYPE_INVITEE_ROLE}: {ir}\nMax requests: {apt.max_concurrent_requests}",
+                value=f"Title prefix: {apt.title_prefix or '—'}\n{S.TYPE_CREATOR_ROLE}: {cr}\n{S.TYPE_INVITEE_ROLE}: {ir}\nMax requests: {apt.max_concurrent_requests}",
                 inline=False,
             )
         await interaction.response.send_message(embed=embed, ephemeral=True)

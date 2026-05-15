@@ -37,11 +37,16 @@ class EventModal(discord.ui.Modal):
         from bot.views.vote_view import build_vote_message
 
         async with SessionLocal() as session:
+            from bot.database.models import AppointmentType
+            apt = await session.get(AppointmentType, self.apt_id)
+            prefix = apt.title_prefix.strip() + " " if apt and apt.title_prefix else ""
+            final_title = f"{prefix}{self.event_title.value}"
+
             event = Event(
                 guild_id=interaction.guild_id,
                 creator_id=interaction.user.id,
                 appointment_type_id=self.apt_id,
-                title=self.event_title.value,
+                title=final_title,
                 description=self.description.value or "",
             )
             session.add(event)
