@@ -62,11 +62,14 @@ async def restore_backup(data: bytes) -> int:
     total = 0
 
     async with SessionLocal() as session:
-        # Break the circular FK (events.confirmed_slot_id → time_slots.id) before deletion
+        # Break circular FK before deletion
         await session.execute(text("UPDATE events SET confirmed_slot_id = NULL"))
-
         for table in reversed(_TABLE_ORDER):
             await session.execute(text(f"DELETE FROM {table}"))
+
+        # confirmed_slot_id references time_slots which is inserted AFTER events.
+        # Collect the mapping so we can UPDATE after time_slots are inserted.
+        confirmed_slots: dict[int, int] = {}
 
         for table in _TABLE_ORDER:
             rows = tables.get(table, [])
@@ -75,6 +78,12 @@ async def restore_backup(data: bytes) -> int:
                     k: datetime.fromisoformat(v) if isinstance(v, str) and _DT_RE.match(v) else v
                     for k, v in row.items()
                 }
+
+                if table == "events":
+                    slot_id = parsed.pop("confirmed_slot_id", None)
+                    if slot_id is not None:
+                        confirmed_slots[parsed["id"]] = slot_id
+
                 cols = ", ".join(parsed.keys())
                 vals = ", ".join(f":{k}" for k in parsed.keys())
                 await session.execute(
@@ -82,6 +91,13 @@ async def restore_backup(data: bytes) -> int:
                     parsed,
                 )
                 total += 1
+
+        # Restore confirmed_slot_id now that time_slots exist
+        for event_id, slot_id in confirmed_slots.items():
+            await session.execute(
+                text("UPDATE events SET confirmed_slot_id = :s WHERE id = :e"),
+                {"s": slot_id, "e": event_id},
+            )
 
         await session.commit()
 
