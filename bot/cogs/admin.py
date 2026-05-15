@@ -485,6 +485,7 @@ class AdminCog(commands.Cog):
         app_commands.Choice(name="Cancelled", value="cancelled"),
     ])
     async def status(self, interaction: discord.Interaction, filter: str = "all") -> None:
+        from bot.database.models import Participant
         from bot.views.creator_view import CreatorView, build_status_embed, fetch_event_data
 
         status_filter = {
@@ -494,28 +495,47 @@ class AdminCog(commands.Cog):
             "all": [EventStatus.OPEN, EventStatus.CONFIRMED, EventStatus.CANCELLED],
         }[filter]
 
+        uid = interaction.user.id
+
         async with SessionLocal() as session:
-            result = await session.execute(
+            # Events the user created
+            r1 = await session.execute(
                 select(Event).where(
                     Event.guild_id == interaction.guild_id,
-                    Event.creator_id == interaction.user.id,
+                    Event.creator_id == uid,
                     Event.status.in_(status_filter),
                 ).order_by(Event.created_at.desc())
             )
-            events = result.scalars().all()
+            creator_events = r1.scalars().all()
+            creator_ids = {e.id for e in creator_events}
 
-            if not events:
-                await interaction.response.send_message(S.STATUS_NO_EVENTS, ephemeral=True)
-                return
+            # Events the user is invited to (but didn't create)
+            r2 = await session.execute(
+                select(Event).join(Participant, Participant.event_id == Event.id).where(
+                    Event.guild_id == interaction.guild_id,
+                    Participant.user_id == uid,
+                    Event.status.in_(status_filter),
+                ).order_by(Event.created_at.desc())
+            )
+            participant_events = [e for e in r2.scalars().all() if e.id not in creator_ids]
 
-            if len(events) == 1 and events[0].status == EventStatus.OPEN:
-                event, slots, participants, votes = await fetch_event_data(session, events[0].id)
-                embed = build_status_embed(event, list(slots), list(participants), list(votes), interaction.guild)
-                view = CreatorView(event_id=event.id)
-                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-            else:
-                view = EventPickerView(list(events))
-                await interaction.response.send_message(S.STATUS_PICK_EVENT, view=view, ephemeral=True)
+        # Combine: creator events first, then participant events
+        all_entries = [(e, True) for e in creator_events] + [(e, False) for e in participant_events]
+
+        if not all_entries:
+            await interaction.response.send_message(S.STATUS_NO_EVENTS, ephemeral=True)
+            return
+
+        if len(all_entries) == 1:
+            event, is_creator = all_entries[0]
+            async with SessionLocal() as session:
+                event, slots, participants, votes = await fetch_event_data(session, event.id)
+            embed = build_status_embed(event, list(slots), list(participants), list(votes), interaction.guild)
+            view = CreatorView(event_id=event.id) if is_creator else None
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        else:
+            view = EventPickerView(all_entries)
+            await interaction.response.send_message(S.STATUS_PICK_EVENT, view=view, ephemeral=True)
 
     @timely.command(name="remind", description="Send a reminder DM to participants who have not yet replied")
     async def remind(self, interaction: discord.Interaction) -> None:
@@ -592,12 +612,6 @@ class RemindPickerSelect(discord.ui.Select):
         await _send_reminders(interaction, int(self.values[0]))
 
 
-class EventPickerView(discord.ui.View):
-    def __init__(self, events: list[Event]) -> None:
-        super().__init__(timeout=120)
-        self.add_item(EventPickerSelect(events))
-
-
 _STATUS_EMOJI = {
     EventStatus.OPEN: "🔄",
     EventStatus.CONFIRMED: "✅",
@@ -605,15 +619,22 @@ _STATUS_EMOJI = {
 }
 
 
+class EventPickerView(discord.ui.View):
+    def __init__(self, entries: list[tuple[Event, bool]]) -> None:
+        super().__init__(timeout=120)
+        self.add_item(EventPickerSelect(entries))
+
+
 class EventPickerSelect(discord.ui.Select):
-    def __init__(self, events: list[Event]) -> None:
+    def __init__(self, entries: list[tuple[Event, bool]]) -> None:
+        self._is_creator = {str(e.id): is_creator for e, is_creator in entries}
         options = [
             discord.SelectOption(
                 label=e.title[:90],
-                description=f"{_STATUS_EMOJI.get(e.status, '')} {e.status.value.capitalize()}",
+                description=f"{_STATUS_EMOJI.get(e.status, '')} {e.status.value.capitalize()} · {'You' if is_creator else 'Invited'}",
                 value=str(e.id),
             )
-            for e in events[:25]
+            for e, is_creator in entries[:25]
         ]
         super().__init__(placeholder=S.STATUS_PICK_PH, options=options)
 
@@ -621,11 +642,13 @@ class EventPickerSelect(discord.ui.Select):
         from bot.views.creator_view import CreatorView, build_status_embed, fetch_event_data
 
         event_id = int(self.values[0])
+        is_creator = self._is_creator.get(self.values[0], False)
+
         async with SessionLocal() as session:
             event, slots, participants, votes = await fetch_event_data(session, event_id)
 
         embed = build_status_embed(event, list(slots), list(participants), list(votes), interaction.guild)
-        view = CreatorView(event_id=event_id)
+        view = CreatorView(event_id=event_id) if is_creator else None
         await interaction.response.edit_message(content=None, embed=embed, view=view)
 
 
